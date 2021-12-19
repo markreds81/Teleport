@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"name": "ZModem",
+			"path": "."
+		}
+	],
+	"settings": {
+		"files.associations": {
+			"cstring": "cpp"
+		}
+	}
+}
