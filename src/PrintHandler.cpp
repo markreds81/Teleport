@@ -1,11 +1,11 @@
-#include "PrintMode.h"
+#include "PrintHandler.h"
 #include "Logger.h"
 #include "AsciiUtils.h"
-#include "CommandMode.h"
+#include "CommandHandler.h"
 #include "ProtoHttp.h"
 #include "ConnSettings.h"
 
-size_t PrintMode::writeStr(char *s)
+size_t PrintHandler::writeStr(char *s)
 {
 	if (outStream != nullptr)
 	{
@@ -21,14 +21,14 @@ size_t PrintMode::writeStr(char *s)
 	return 0;
 }
 
-char *PrintMode::getLastPrinterSpec()
+char *PrintHandler::getLastPrinterSpec()
 {
 	if (lastPrinterSpec == 0)
 		return "";
 	return lastPrinterSpec;
 }
 
-void PrintMode::setLastPrinterSpec(const char *spec)
+void PrintHandler::setLastPrinterSpec(const char *spec)
 {
 	if (lastPrinterSpec != 0)
 		free(lastPrinterSpec);
@@ -41,18 +41,18 @@ void PrintMode::setLastPrinterSpec(const char *spec)
 	}
 }
 
-int PrintMode::getTimeoutDelayMs()
+int PrintHandler::getTimeoutDelayMs()
 {
 	return timeoutDelayMs;
 }
 
-void PrintMode::setTimeoutDelayMs(int ms)
+void PrintHandler::setTimeoutDelayMs(int ms)
 {
 	if (ms > 50)
 		timeoutDelayMs = ms;
 }
 
-size_t PrintMode::writeChunk(char *s, int len)
+size_t PrintHandler::writeChunk(char *s, int len)
 {
 	char buf[25];
 	sprintf(buf, "%x\r\n", len);
@@ -67,7 +67,7 @@ size_t PrintMode::writeChunk(char *s, int len)
 	return len + strlen(buf) + 4;
 }
 
-void PrintMode::announcePrintJob(const char *hostIp, const int port, const char *req)
+void PrintHandler::announcePrintJob(const char *hostIp, const int port, const char *req)
 {
 	logPrintfln("Print Request to host=%s, port=%d", hostIp, port);
 	SerialDebug.printf("Print Request to host=%s, port=%d\n", hostIp, port);
@@ -75,7 +75,7 @@ void PrintMode::announcePrintJob(const char *hostIp, const int port, const char 
 	SerialDebug.printf("Print Request is /%s\n", req);
 }
 
-ZResult PrintMode::switchToPostScript(char *prefix)
+ZResult PrintHandler::switchToPostScript(char *prefix)
 {
 	if ((lastPrinterSpec == 0) || (strlen(lastPrinterSpec) <= 5) || (lastPrinterSpec[1] != ':'))
 		return ZERROR;
@@ -117,7 +117,7 @@ ZResult PrintMode::switchToPostScript(char *prefix)
 	return result;
 }
 
-ZResult PrintMode::switchTo(char *vbuf, int vlen, bool petscii)
+ZResult PrintHandler::switchTo(char *vbuf, int vlen, bool petscii)
 {
 	char *workBuf = (char *)malloc(vlen + 1);
 	strcpy(workBuf, vbuf);
@@ -184,7 +184,7 @@ ZResult PrintMode::switchTo(char *vbuf, int vlen, bool petscii)
 	return result;
 }
 
-ZResult PrintMode::finishSwitchTo(char *hostIp, char *req, int port, bool doSSL)
+ZResult PrintHandler::finishSwitchTo(char *hostIp, char *req, int port, bool doSSL)
 {
 	if ((wifiSock != nullptr) && (!wifiSock->isConnected()))
 		return ZERROR;
@@ -241,11 +241,11 @@ ZResult PrintMode::finishSwitchTo(char *hostIp, char *req, int port, bool doSSL)
 	lastNonPlusTimeMs = 0;
 	plussesInARow = 0;
 	currentExpiresTimeMs = millis() + 5000;
-	currentMode = &printMode;
+	currentMode = &PrintMode;
 	return ZIGNORE;
 }
 
-void PrintMode::serialIncoming()
+void PrintHandler::serialIncoming()
 {
 	if (SerialDTE.available() > 0)
 	{
@@ -253,7 +253,7 @@ void PrintMode::serialIncoming()
 		{
 			uint8_t c = SerialDTE.read();
 			logSerialIn(c);
-			if ((c == commandMode.EC) && (plussesInARow < 3) && ((plussesInARow > 0) || ((millis() - lastNonPlusTimeMs) > 900)))
+			if ((c == CommandMode.EC) && (plussesInARow < 3) && ((plussesInARow > 0) || ((millis() - lastNonPlusTimeMs) > 900)))
 			{
 				plussesInARow++;
 				continue;
@@ -263,7 +263,7 @@ void PrintMode::serialIncoming()
 				if (plussesInARow > 0)
 				{
 					for (int i = 0; i < plussesInARow; i++)
-						pbuf[pdex++] = commandMode.EC;
+						pbuf[pdex++] = CommandMode.EC;
 					plussesInARow = 0;
 				}
 				lastNonPlusTimeMs = millis();
@@ -317,23 +317,23 @@ void PrintMode::serialIncoming()
 	}
 }
 
-void PrintMode::switchBackToCommandMode(bool error)
+void PrintHandler::switchBackToCommandMode(bool error)
 {
 	if ((wifiSock != nullptr) || (outStream != nullptr))
 	{
 		if (error)
-			commandMode.sendOfficialResponse(ZERROR);
+			CommandMode.sendOfficialResponse(ZERROR);
 		else
-			commandMode.sendOfficialResponse(ZOK);
+			CommandMode.sendOfficialResponse(ZOK);
 		if (wifiSock != nullptr)
 			delete wifiSock;
 	}
 	wifiSock = nullptr;
 	outStream = nullptr;
-	currentMode = &commandMode;
+	currentMode = &CommandMode;
 }
 
-void PrintMode::loop()
+void PrintHandler::loop()
 {
 	if (((wifiSock == nullptr) && (outStream == nullptr)) || ((wifiSock != nullptr) && (!wifiSock->isConnected())))
 	{
@@ -352,4 +352,4 @@ void PrintMode::loop()
 	checkBaudChange();
 }
 
-PrintMode printMode;
+PrintHandler PrintMode;

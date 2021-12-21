@@ -1,11 +1,12 @@
-#ifndef CONFIG_MODE_H
-#define CONFIG_MODE_H
+#ifndef CONFIG_HANDLER_H
+#define CONFIG_HANDLER_H
 
 #include "main.h"
+#include "ModeHandler.h"
 #include "SerialBuffer.h"
 #include "WiFiServerNode.h"
 
-class ZConfig : public ZMode
+class ConfigHandler : public ModeHandler
 {
 private:
     enum ZConfigMenu
@@ -55,6 +56,6 @@ public:
     void loop();
 };
 
-extern ZConfig configMode;
+extern ConfigHandler ConfigMode;
 
 #endif

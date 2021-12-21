@@ -1,8 +1,9 @@
-#ifndef PRINT_MODE_H
-#define PRINT_MODE_H
+#ifndef PRINT_HANDLER_H
+#define PRINT_HANDLER_H
 
 #include "main.h"
 #include "z_types.h"
+#include "ModeHandler.h"
 #include "WiFiClientNode.h"
 #include "SerialBuffer.h"
 #include <SPIFFS.h>
@@ -16,7 +17,7 @@ enum PrintPayloadType
 	RAW
 };
 
-class PrintMode : public ZMode
+class PrintHandler : public ModeHandler
 {
 private:
 	WiFiClientNode *wifiSock = nullptr;
@@ -55,6 +56,6 @@ public:
 	void loop();
 };
 
-extern PrintMode printMode;
+extern PrintHandler PrintMode;
 
 #endif

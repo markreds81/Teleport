@@ -2,7 +2,7 @@
 #include "AsciiUtils.h"
 #include "ConnSettings.h"
 #include "SerialBuffer.h"
-#include "CommandMode.h"
+#include "CommandHandler.h"
 
 WiFiClient *createWiFiClient(bool SSL)
 {
@@ -104,10 +104,10 @@ WiFiClientNode::~WiFiClientNode()
         if (last != nullptr)
             last->next = next;
     }
-    if (commandMode.current == this)
-        commandMode.current = conns;
-    if (commandMode.nextConn == this)
-        commandMode.nextConn = conns;
+    if (CommandMode.current == this)
+        CommandMode.current = conns;
+    if (CommandMode.nextConn == this)
+        CommandMode.nextConn = conns;
     underflowBufLen = 0;
     freeCharArray(&delimiters);
     freeCharArray(&maskOuts);

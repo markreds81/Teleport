@@ -1,8 +1,9 @@
-#ifndef COMMAND_MODE_H
-#define COMMAND_MODE_H
+#ifndef COMMAND_HANDLER_H
+#define COMMAND_HANDLER_H
 
 #include "main.h"
 #include "z_types.h"
+#include "ModeHandler.h"
 #include "WiFiClientNode.h"
 #include "SerialBuffer.h"
 
@@ -22,11 +23,7 @@ enum BinType {
 	BTYPE_INVALID = 4
 };
 
-class CommandMode : public ZMode {
-
-friend class WiFiClientNode;
-friend class ZConfig;
-
+class CommandHandler : public ModeHandler {
 private:
 	char CRLF[4];
     char LFCR[4];
@@ -97,6 +94,9 @@ private:
     ZResult doWebStream(int vval, uint8_t *vbuf, int vlen, bool isNumber, const char *filename, bool cache);
     ZResult doUpdateFirmware(int vval, uint8_t *vbuf, int vlen, bool isNumber);
     ZResult doTimeZoneSetupCommand(int vval, uint8_t *vbuf, int vlen, bool isNumber);
+protected:
+    friend class ConfigHandler;
+    friend class WiFiClientNode;
 public:
 	int packetSize = 127;
     bool suppressResponses;
@@ -107,8 +107,8 @@ public:
     char EC='+';
     char ECS[32];
 
-    CommandMode();
-    virtual ~CommandMode();
+    CommandHandler();
+    virtual ~CommandHandler();
 
 	void loadConfig();
 	FlowControlType getFlowControlType();
@@ -119,6 +119,6 @@ public:
 	void reset();
 };
 
-extern CommandMode commandMode;
+extern CommandHandler CommandMode;
 
 #endif

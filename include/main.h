@@ -33,14 +33,11 @@ typedef uint32_t SerialConfig;
 
 const char compile_date[] = __DATE__ " " __TIME__;
 
-class ZMode {
-public:
-	virtual void serialIncoming();
-	virtual void loop();
-};
-
 extern HardwareSerial SerialDTE;
-extern ZMode *currentMode;
+
+#include "ModeHandler.h"
+extern ModeHandler *currentMode;
+
 extern int wifiNextNodeId;
 extern bool wifiConnected;
 extern SerialConfig serialConfig;

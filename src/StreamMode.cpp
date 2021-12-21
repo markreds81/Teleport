@@ -1,10 +1,10 @@
-#include "StreamMode.h"
-#include "CommandMode.h"
+#include "StreamHandler.h"
+#include "CommandHandler.h"
 #include "Logger.h"
 #include "AsciiUtils.h"
 #include "WiFiServerNode.h"
 
-void StreamMode::switchTo(WiFiClientNode *conn)
+void StreamHandler::switchTo(WiFiClientNode *conn)
 {
 	current = conn;
 	currentExpiresTimeMs = 0;
@@ -13,37 +13,37 @@ void StreamMode::switchTo(WiFiClientNode *conn)
 	serial.setXON(true);
 	serial.setPetsciiMode(isPETSCII());
 	serial.setFlowControlType(getFlowControl());
-	currentMode = &streamMode;
+	currentMode = &StreamMode;
 	checkBaudChange();
 	lastDTR = digitalRead(PIN_DTR);		
 }
 
-bool StreamMode::isPETSCII()
+bool StreamHandler::isPETSCII()
 {
 	return (current != nullptr) && (current->isPETSCII());
 }
 
-bool StreamMode::isEcho()
+bool StreamHandler::isEcho()
 {
 	return (current != nullptr) && (current->isEcho());
 }
 
-FlowControlType StreamMode::getFlowControl()
+FlowControlType StreamHandler::getFlowControl()
 {
 	return (current != nullptr) ? (current->getFlowControl()) : FCT_DISABLED;
 }
 
-bool StreamMode::isTelnet()
+bool StreamHandler::isTelnet()
 {
 	return (current != nullptr) && (current->isTelnet());
 }
 
-bool StreamMode::isDisconnectedOnStreamExit()
+bool StreamHandler::isDisconnectedOnStreamExit()
 {
 	return (current != nullptr) && (current->isDisconnectedOnStreamExit());
 }
 
-void StreamMode::baudDelay()
+void StreamHandler::baudDelay()
 {
 	if (baudRate < 1200)
 		delay(5);
@@ -54,7 +54,7 @@ void StreamMode::baudDelay()
 	yield();
 }
 
-void StreamMode::serialIncoming()
+void StreamHandler::serialIncoming()
 {
 	int bytesAvailable = SerialDTE.available();
 	if (bytesAvailable == 0)
@@ -78,9 +78,9 @@ void StreamMode::serialIncoming()
 			}
 		}
 		logSerialIn(c);
-		if ((c == commandMode.EC) && ((plussesInARow > 0) || ((millis() - lastNonPlusTimeMs) > 800)))
+		if ((c == CommandMode.EC) && ((plussesInARow > 0) || ((millis() - lastNonPlusTimeMs) > 800)))
 			plussesInARow++;
-		else if (c != commandMode.EC)
+		else if (c != CommandMode.EC)
 		{
 			plussesInARow = 0;
 			lastNonPlusTimeMs = millis();
@@ -107,32 +107,32 @@ void StreamMode::serialIncoming()
 		currentExpiresTimeMs = millis() + 800;
 }
 
-void StreamMode::switchBackToCommandMode(bool logout)
+void StreamHandler::switchBackToCommandMode(bool logout)
 {
 	if (logout && (current != nullptr) && isDisconnectedOnStreamExit())
 	{
-		if (!commandMode.suppressResponses)
+		if (!CommandMode.suppressResponses)
 		{
-			if (commandMode.numericResponses)
+			if (CommandMode.numericResponses)
 			{
-				preEOLN(commandMode.EOLN);
+				preEOLN(CommandMode.EOLN);
 				serial.prints("3");
-				serial.prints(commandMode.EOLN);
+				serial.prints(CommandMode.EOLN);
 			}
 			else if (current->isAnswered())
 			{
-				preEOLN(commandMode.EOLN);
+				preEOLN(CommandMode.EOLN);
 				serial.prints("NO CARRIER");
-				serial.prints(commandMode.EOLN);
+				serial.prints(CommandMode.EOLN);
 			}
 		}
 		delete current;
 	}
 	current = nullptr;
-	currentMode = &commandMode;
+	currentMode = &CommandMode;
 }
 
-void StreamMode::socketWrite(uint8_t *buf, uint8_t len)
+void StreamHandler::socketWrite(uint8_t *buf, uint8_t len)
 {
 	if (current->isConnected())
 	{
@@ -156,7 +156,7 @@ void StreamMode::socketWrite(uint8_t *buf, uint8_t len)
 	}
 }
 
-void StreamMode::socketWrite(uint8_t c)
+void StreamHandler::socketWrite(uint8_t c)
 {
 	if (current->isConnected())
 	{
@@ -171,7 +171,7 @@ void StreamMode::socketWrite(uint8_t c)
 	}
 }
 
-void StreamMode::loop()
+void StreamHandler::loop()
 {
 	WiFiServerNode *serv = servs;
 	while (serv != nullptr)
@@ -239,7 +239,7 @@ void StreamMode::loop()
 			plussesInARow = 0;
 			if (current != 0)
 			{
-				commandMode.sendOfficialResponse(ZOK);
+				CommandMode.sendOfficialResponse(ZOK);
 				switchBackToCommandMode(false);
 			}
 		}
@@ -282,4 +282,4 @@ void StreamMode::loop()
 	checkBaudChange();
 }
 
-StreamMode streamMode;
+StreamHandler StreamMode;

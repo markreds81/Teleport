@@ -1,24 +1,24 @@
-#include "ConfigMode.h"
-#include "CommandMode.h"
+#include "ConfigHandler.h"
+#include "CommandHandler.h"
 #include "AsciiUtils.h"
 #include "PhoneBookEntry.h"
 #include "ConnSettings.h"
 
-void ZConfig::switchTo()
+void ConfigHandler::switchTo()
 {
-    currentMode = &configMode;
-    serial.setFlowControlType(commandMode.serial.getFlowControlType());
-    serial.setPetsciiMode(commandMode.serial.isPetsciiMode());
-    savedEcho = commandMode.doEcho;
-    newListen = commandMode.preserveListeners;
-    commandMode.doEcho = true;
+    currentMode = &ConfigMode;
+    serial.setFlowControlType(CommandMode.serial.getFlowControlType());
+    serial.setPetsciiMode(CommandMode.serial.isPetsciiMode());
+    savedEcho = CommandMode.doEcho;
+    newListen = CommandMode.preserveListeners;
+    CommandMode.doEcho = true;
     serverSpec.port = 6502;
-    serverSpec.flagsBitmap = commandMode.getConfigFlagBitmap();
+    serverSpec.flagsBitmap = CommandMode.getConfigFlagBitmap();
     if (servs)
         serverSpec = *servs;
     serial.setXON(true);
     showMenu = true;
-    EOLN = commandMode.EOLN;
+    EOLN = CommandMode.EOLN;
     EOLNC = EOLN.c_str();
     currState = ZCFGMENU_MAIN;
     lastNumber = 0;
@@ -28,25 +28,25 @@ void ZConfig::switchTo()
     lastNumNetworks = 0;
 }
 
-void ZConfig::serialIncoming()
+void ConfigHandler::serialIncoming()
 {
-    bool crReceived = commandMode.readSerialStream();
-    commandMode.clearPlusProgress(); // re-check the plus-escape mode
+    bool crReceived = CommandMode.readSerialStream();
+    CommandMode.clearPlusProgress(); // re-check the plus-escape mode
     if (crReceived)
     {
         doModeCommand();
     }
 }
 
-void ZConfig::switchBackToCommandMode()
+void ConfigHandler::switchBackToCommandMode()
 {
-    commandMode.doEcho = savedEcho;
-    currentMode = &commandMode;
+    CommandMode.doEcho = savedEcho;
+    currentMode = &CommandMode;
 }
 
-void ZConfig::doModeCommand()
+void ConfigHandler::doModeCommand()
 {
-    String cmd = commandMode.getNextSerialCommand();
+    String cmd = CommandMode.getNextSerialCommand();
     char c = '?';
     for (int i = 0; i < cmd.length(); i++)
     {
@@ -69,7 +69,7 @@ void ZConfig::doModeCommand()
             }
             else
             {
-                commandMode.showInitMessage();
+                CommandMode.showInitMessage();
                 switchBackToCommandMode();
                 return;
             }
@@ -96,8 +96,8 @@ void ZConfig::doModeCommand()
         }
         else if (c == 'p') // petscii translation toggle
         {
-            commandMode.serial.setPetsciiMode(!commandMode.serial.isPetsciiMode());
-            serial.setPetsciiMode(commandMode.serial.isPetsciiMode());
+            CommandMode.serial.setPetsciiMode(!CommandMode.serial.isPetsciiMode());
+            serial.setPetsciiMode(CommandMode.serial.isPetsciiMode());
             settingsChanged = true;
             showMenu = true;
         }
@@ -141,15 +141,15 @@ void ZConfig::doModeCommand()
     {
         if ((cmd.length() == 0) || (c == 'n'))
         {
-            commandMode.showInitMessage();
+            CommandMode.showInitMessage();
             switchBackToCommandMode();
             return;
         }
         else if (c == 'y')
         {
-            if (newListen != commandMode.preserveListeners)
+            if (newListen != CommandMode.preserveListeners)
             {
-                commandMode.preserveListeners = newListen;
+                CommandMode.preserveListeners = newListen;
                 if (!newListen)
                 {
                     SPIFFS.remove("/zlisteners.txt");
@@ -157,8 +157,8 @@ void ZConfig::doModeCommand()
                 }
                 else
                 {
-                    commandMode.ringCounter = 1;
-                    commandMode.autoStreamMode = true;
+                    CommandMode.ringCounter = 1;
+                    CommandMode.autoStreamMode = true;
                     WiFiServerNode *s = WiFiServerNode::FindServer(serverSpec.port);
                     if (s != nullptr)
                         delete s;
@@ -166,7 +166,7 @@ void ZConfig::doModeCommand()
                     WiFiServerNode::SaveWiFiServers();
                 }
             }
-            else if (commandMode.preserveListeners)
+            else if (CommandMode.preserveListeners)
             {
                 WiFiServerNode *s = WiFiServerNode::FindServer(serverSpec.port);
                 if (s != nullptr)
@@ -181,12 +181,12 @@ void ZConfig::doModeCommand()
                     WiFiServerNode::DestroyAllServers();
                     s = new WiFiServerNode(serverSpec.port, serverSpec.flagsBitmap);
                     WiFiServerNode::SaveWiFiServers();
-                    commandMode.updateAutoAnswer();
+                    CommandMode.updateAutoAnswer();
                 }
             }
-            commandMode.reSaveConfig();
+            CommandMode.reSaveConfig();
             serial.printf("%sSettings saved.%s", EOLNC, EOLNC);
-            commandMode.showInitMessage();
+            CommandMode.showInitMessage();
             WiFiServerNode::SaveWiFiServers();
             switchBackToCommandMode();
             return;
@@ -212,7 +212,7 @@ void ZConfig::doModeCommand()
         {
             lastNumber = atol((char *)cmd.c_str());
             lastAddress = "";
-            ConnSettings flags(commandMode.getConfigFlagBitmap());
+            ConnSettings flags(CommandMode.getConfigFlagBitmap());
             lastOptions = flags.getFlagString();
             lastNotes = "";
             currState = ZCFGMENU_ADDRESS;
@@ -586,25 +586,25 @@ void ZConfig::doModeCommand()
             currState = ZCFGMENU_MAIN;
             showMenu = true;
             if (c == 'x')
-                commandMode.serial.setFlowControlType(FCT_NORMAL);
+                CommandMode.serial.setFlowControlType(FCT_NORMAL);
             else if (c == 'r')
-                commandMode.serial.setFlowControlType(FCT_RTSCTS);
+                CommandMode.serial.setFlowControlType(FCT_RTSCTS);
             else if (c == 'd')
-                commandMode.serial.setFlowControlType(FCT_DISABLED);
+                CommandMode.serial.setFlowControlType(FCT_DISABLED);
             else
             {
                 serial.printf("%sUnknown flow control type '%s'.  Try again.%s", EOLNC, cmd.c_str(), EOLNC);
                 currState = ZCFGMENU_FLOW;
             }
             settingsChanged = settingsChanged || (currState == ZCFGMENU_MAIN);
-            serial.setFlowControlType(commandMode.serial.getFlowControlType());
+            serial.setFlowControlType(CommandMode.serial.getFlowControlType());
             serial.setXON(true);
         }
         break;
     }
 }
 
-void ZConfig::loop()
+void ConfigHandler::loop()
 {
     if (showMenu)
     {
@@ -617,7 +617,7 @@ void ZConfig::loop()
             serial.printf("[HOST] name: %s%s", hostname.c_str(), EOLNC);
             serial.printf("[WIFI] connection: %s%s", (WiFi.status() == WL_CONNECTED) ? wifiSSI.c_str() : "Not connected", EOLNC);
             String flowName;
-            switch (commandMode.serial.getFlowControlType())
+            switch (CommandMode.serial.getFlowControlType())
             {
             case FCT_NORMAL:
                 flowName = "XON/XOFF";
@@ -641,7 +641,7 @@ void ZConfig::loop()
             serial.printf("[FLOW] control: %s%s", flowName.c_str(), EOLNC);
             serial.printf("[ECHO] keystrokes: %s%s", savedEcho ? "ON" : "OFF", EOLNC);
             serial.printf("[BBS] host: %s%s", bbsMode.c_str(), EOLNC);
-            serial.printf("[PETSCII] translation: %s%s", commandMode.serial.isPetsciiMode() ? "ON" : "OFF", EOLNC);
+            serial.printf("[PETSCII] translation: %s%s", CommandMode.serial.isPetsciiMode() ? "ON" : "OFF", EOLNC);
             serial.printf("[ADD] new phonebook entry%s", EOLNC);
             PhoneBookEntry *p = phonebook;
             if (p != nullptr)
@@ -809,7 +809,7 @@ void ZConfig::loop()
         }
         }
     }
-    if (commandMode.checkPlusEscape())
+    if (CommandMode.checkPlusEscape())
     {
         switchBackToCommandMode();
     }
@@ -819,4 +819,4 @@ void ZConfig::loop()
     }
 }
 
-ZConfig configMode;
+ConfigHandler ConfigMode;

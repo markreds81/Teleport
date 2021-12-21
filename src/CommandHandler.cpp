@@ -1,5 +1,5 @@
-#include "CommandMode.h"
-#include "PrintMode.h"
+#include "CommandHandler.h"
+#include "PrintHandler.h"
 #include "AsciiUtils.h"
 #include "Logger.h"
 #include "ConnSettings.h"
@@ -8,9 +8,9 @@
 #include "driver/uart.h"
 #include "RTClock.h"
 #include "ProtoHttp.h"
-#include "StreamMode.h"
+#include "StreamHandler.h"
 #include "SerialBuffer.h"
-#include "ConfigMode.h"
+#include "ConfigHandler.h"
 #include "SPIFFS.h"
 
 extern "C" void esp_schedule();
@@ -71,7 +71,7 @@ static void pinModeDecoder(String newMode, int *active, int *inactive, int activ
 	}
 }
 
-CommandMode::CommandMode()
+CommandHandler::CommandHandler()
 {
 	strcpy(CRLF, "\r\n");
 	strcpy(LFCR, "\n\r");
@@ -87,15 +87,15 @@ CommandMode::CommandMode()
 	machineState = stateMachine;
 }
 
-CommandMode::~CommandMode() {}
+CommandHandler::~CommandHandler() {}
 
-void CommandMode::reset()
+void CommandHandler::reset()
 {
 	doResetCommand();
 	showInitMessage();
 }
 
-byte CommandMode::CRC8(const byte *data, byte len)
+byte CommandHandler::CRC8(const byte *data, byte len)
 {
 	byte crc = 0x00;
 	// logPrint("CRC8: ");
@@ -131,7 +131,7 @@ byte CommandMode::CRC8(const byte *data, byte len)
 	return crc;
 }
 
-void CommandMode::setConfigDefaults()
+void CommandHandler::setConfigDefaults()
 {
 	doEcho = true;
 	autoStreamMode = false;
@@ -197,7 +197,7 @@ void CommandMode::setConfigDefaults()
 	pinMode(PIN_LED_HS, OUTPUT);
 }
 
-void CommandMode::connectionArgs(WiFiClientNode *c)
+void CommandHandler::connectionArgs(WiFiClientNode *c)
 {
 	setCharArray(&(c->delimiters), tempDelimiters);
 	setCharArray(&(c->maskOuts), tempMaskOuts);
@@ -208,7 +208,7 @@ void CommandMode::connectionArgs(WiFiClientNode *c)
 	c->machineState = c->stateMachine;
 }
 
-ZResult CommandMode::doResetCommand()
+ZResult CommandHandler::doResetCommand()
 {
 	while (conns != nullptr)
 	{
@@ -233,7 +233,7 @@ ZResult CommandMode::doResetCommand()
 	return ZOK;
 }
 
-ZResult CommandMode::doNoListenCommand()
+ZResult CommandHandler::doNoListenCommand()
 {
 	/*
 	WiFiClientNode *c=conns;
@@ -249,12 +249,12 @@ ZResult CommandMode::doNoListenCommand()
 	return ZOK;
 }
 
-FlowControlType CommandMode::getFlowControlType()
+FlowControlType CommandHandler::getFlowControlType()
 {
 	return serial.getFlowControlType();
 }
 
-void CommandMode::reSaveConfig()
+void CommandHandler::reSaveConfig()
 {
 	char hex[256];
 	SPIFFS.remove(CONFIG_FILE_OLD);
@@ -272,7 +272,7 @@ void CommandMode::reSaveConfig()
 	String zclockFormathex = TOHEX(zclock.getFormat().c_str(), hex, 256);
 	String zclockHosthex = TOHEX(zclock.getNtpServerHost().c_str(), hex, 256);
 	String hostnamehex = TOHEX(hostname.c_str(), hex, 256);
-	String printSpechex = TOHEX(printMode.getLastPrinterSpec(), hex, 256);
+	String printSpechex = TOHEX(PrintMode.getLastPrinterSpec(), hex, 256);
 	String termTypehex = TOHEX(termType.c_str(), hex, 256);
 	String busyMsghex = TOHEX(busyMsg.c_str(), hex, 256);
 	String staticIPstr;
@@ -302,7 +302,7 @@ void CommandMode::reSaveConfig()
 			 riMode, dtrMode, dsrMode, PIN_RI, PIN_DTR, PIN_DSR,
 			 zclock.isDisabled() ? 999 : zclock.getTimeZoneCode(),
 			 zclockFormathex.c_str(), zclockHosthex.c_str(), hostnamehex.c_str(),
-			 printMode.getTimeoutDelayMs(), printSpechex.c_str(), termTypehex.c_str(),
+			 PrintMode.getTimeoutDelayMs(), printSpechex.c_str(), termTypehex.c_str(),
 			 staticIPstr.c_str(), staticDNSstr.c_str(), staticGWstr.c_str(), staticSNstr.c_str(),
 			 busyMsghex.c_str());
 	f.close();
@@ -331,12 +331,12 @@ void CommandMode::reSaveConfig()
 	}
 }
 
-int CommandMode::getConfigFlagBitmap()
+int CommandHandler::getConfigFlagBitmap()
 {
 	return serial.getConfigFlagBitmap() | (doEcho ? FLAG_ECHO : 0);
 }
 
-void CommandMode::setOptionsFromSavedConfig(String configArguments[])
+void CommandHandler::setOptionsFromSavedConfig(String configArguments[])
 {
 	if (configArguments[CFG_EOLN].length() > 0)
 	{
@@ -441,8 +441,8 @@ void CommandMode::setOptionsFromSavedConfig(String configArguments[])
 	if ((!zclock.isDisabled()) && (WiFi.status() == WL_CONNECTED))
 		zclock.forceUpdate();
 	// if(configArguments[CFG_PRINTDELAYMS].length()>0) // since you can't change it, what's the point?
-	//   printMode.setTimeoutDelayMs(atoi(configArguments[CFG_PRINTDELAYMS].c_str()));
-	printMode.setLastPrinterSpec(configArguments[CFG_PRINTSPEC].c_str());
+	//   PrintMode.setTimeoutDelayMs(atoi(configArguments[CFG_PRINTDELAYMS].c_str()));
+	PrintMode.setLastPrinterSpec(configArguments[CFG_PRINTSPEC].c_str());
 	if (configArguments[CFG_TERMTYPE].length() > 0)
 		termType = configArguments[CFG_TERMTYPE];
 	if (configArguments[CFG_BUSYMSG].length() > 0)
@@ -450,7 +450,7 @@ void CommandMode::setOptionsFromSavedConfig(String configArguments[])
 	updateAutoAnswer();
 }
 
-void CommandMode::parseConfigOptions(String configArguments[])
+void CommandHandler::parseConfigOptions(String configArguments[])
 {
 	delay(500);
 	bool v2 = SPIFFS.exists(CONFIG_FILE);
@@ -488,7 +488,7 @@ void CommandMode::parseConfigOptions(String configArguments[])
 	}
 }
 
-void CommandMode::loadConfig()
+void CommandHandler::loadConfig()
 {
 	wifiConnected = false;
 	if (WiFi.status() == WL_CONNECTED)
@@ -527,7 +527,7 @@ void CommandMode::loadConfig()
 	SerialDebug.println("Init complete.");
 }
 
-ZResult CommandMode::doInfoCommand(int vval, uint8_t *vbuf, int vlen, bool isNumber)
+ZResult CommandHandler::doInfoCommand(int vval, uint8_t *vbuf, int vlen, bool isNumber)
 {
 	if (vval == 0)
 	{
@@ -744,7 +744,7 @@ ZResult CommandMode::doInfoCommand(int vval, uint8_t *vbuf, int vlen, bool isNum
 			break;
 		}
 		case 10:
-			serial.printf("%s%s", printMode.getLastPrinterSpec(), EOLN.c_str());
+			serial.printf("%s%s", PrintMode.getLastPrinterSpec(), EOLN.c_str());
 			break;
 		case 11:
 		{
@@ -757,7 +757,7 @@ ZResult CommandMode::doInfoCommand(int vval, uint8_t *vbuf, int vlen, bool isNum
 	return ZOK;
 }
 
-ZResult CommandMode::doBaudCommand(int vval, uint8_t *vbuf, int vlen)
+ZResult CommandHandler::doBaudCommand(int vval, uint8_t *vbuf, int vlen)
 {
 	if (vval <= 0)
 	{
@@ -830,7 +830,7 @@ ZResult CommandMode::doBaudCommand(int vval, uint8_t *vbuf, int vlen)
 	return ZOK;
 }
 
-ZResult CommandMode::doConnectCommand(int vval, uint8_t *vbuf, int vlen, bool isNumber, const char *dmodifiers)
+ZResult CommandHandler::doConnectCommand(int vval, uint8_t *vbuf, int vlen, bool isNumber, const char *dmodifiers)
 {
 	if (vlen == 0)
 	{
@@ -953,7 +953,7 @@ ZResult CommandMode::doConnectCommand(int vval, uint8_t *vbuf, int vlen, bool is
 	return ZOK;
 }
 
-void CommandMode::headerOut(const int channel, const int sz, const int crc8)
+void CommandHandler::headerOut(const int channel, const int sz, const int crc8)
 {
 	switch (binType)
 	{
@@ -973,7 +973,7 @@ void CommandMode::headerOut(const int channel, const int sz, const int crc8)
 	serial.prints(hbuf);
 }
 
-ZResult CommandMode::doWebStream(int vval, uint8_t *vbuf, int vlen, bool isNumber, const char *filename, bool cache)
+ZResult CommandHandler::doWebStream(int vval, uint8_t *vbuf, int vlen, bool isNumber, const char *filename, bool cache)
 {
 	char *hostIp;
 	char *req;
@@ -1012,7 +1012,7 @@ ZResult CommandMode::doWebStream(int vval, uint8_t *vbuf, int vlen, bool isNumbe
 	return doWebDump(filename, cache);
 }
 
-ZResult CommandMode::doWebDump(Stream *in, int len, const bool cacheFlag)
+ZResult CommandHandler::doWebDump(Stream *in, int len, const bool cacheFlag)
 {
 	bool flowControl = !cacheFlag;
 	BinType streamType = cacheFlag ? BTYPE_NORMAL : binType;
@@ -1099,7 +1099,7 @@ ZResult CommandMode::doWebDump(Stream *in, int len, const bool cacheFlag)
 		serial.prints(EOLN);
 }
 
-ZResult CommandMode::doWebDump(const char *filename, const bool cache)
+ZResult CommandHandler::doWebDump(const char *filename, const bool cache)
 {
 	machineState = stateMachine;
 	int chk8 = 0;
@@ -1155,7 +1155,7 @@ ZResult CommandMode::doWebDump(const char *filename, const bool cache)
 	return res;
 }
 
-ZResult CommandMode::doUpdateFirmware(int vval, uint8_t *vbuf, int vlen, bool isNumber)
+ZResult CommandHandler::doUpdateFirmware(int vval, uint8_t *vbuf, int vlen, bool isNumber)
 {
 	// 	serial.prints("Local firmware version ");
 	// 	serial.prints(ZIMODEM_VERSION);
@@ -1264,7 +1264,7 @@ ZResult CommandMode::doUpdateFirmware(int vval, uint8_t *vbuf, int vlen, bool is
 	return ZOK;
 }
 
-ZResult CommandMode::doWiFiCommand(int vval, uint8_t *vbuf, int vlen, bool isNumber, const char *dmodifiers)
+ZResult CommandHandler::doWiFiCommand(int vval, uint8_t *vbuf, int vlen, bool isNumber, const char *dmodifiers)
 {
 	bool doPETSCII = (strchr(dmodifiers, 'p') != nullptr) || (strchr(dmodifiers, 'P') != nullptr);
 	if ((vlen == 0) || (vval > 0))
@@ -1387,7 +1387,7 @@ ZResult CommandMode::doWiFiCommand(int vval, uint8_t *vbuf, int vlen, bool isNum
 	return ZOK;
 }
 
-ZResult CommandMode::doTransmitCommand(int vval, uint8_t *vbuf, int vlen, bool isNumber, const char *dmodifiers, int *crc8)
+ZResult CommandHandler::doTransmitCommand(int vval, uint8_t *vbuf, int vlen, bool isNumber, const char *dmodifiers, int *crc8)
 {
 	bool doPETSCII = (strchr(dmodifiers, 'p') != nullptr) || (strchr(dmodifiers, 'P') != nullptr);
 	int crcChk = *crc8;
@@ -1453,7 +1453,7 @@ ZResult CommandMode::doTransmitCommand(int vval, uint8_t *vbuf, int vlen, bool i
 	}
 }
 
-ZResult CommandMode::doDialStreamCommand(unsigned long vval, uint8_t *vbuf, int vlen, bool isNumber, const char *dmodifiers)
+ZResult CommandHandler::doDialStreamCommand(unsigned long vval, uint8_t *vbuf, int vlen, bool isNumber, const char *dmodifiers)
 {
 	if (vlen == 0)
 	{
@@ -1461,7 +1461,7 @@ ZResult CommandMode::doDialStreamCommand(unsigned long vval, uint8_t *vbuf, int 
 			return ZERROR;
 		else
 		{
-			streamMode.switchTo(current);
+			StreamMode.switchTo(current);
 		}
 	}
 	else if ((vval >= 0) && (isNumber))
@@ -1494,7 +1494,7 @@ ZResult CommandMode::doDialStreamCommand(unsigned long vval, uint8_t *vbuf, int 
 		{
 			current = c;
 			connectionArgs(c);
-			streamMode.switchTo(c);
+			StreamMode.switchTo(c);
 			return ZCONNECT;
 		}
 		else
@@ -1521,14 +1521,14 @@ ZResult CommandMode::doDialStreamCommand(unsigned long vval, uint8_t *vbuf, int 
 		{
 			current = c;
 			connectionArgs(c);
-			streamMode.switchTo(c);
+			StreamMode.switchTo(c);
 			return ZCONNECT;
 		}
 	}
 	return ZOK;
 }
 
-ZResult CommandMode::doPhonebookCommand(unsigned long vval, uint8_t *vbuf, int vlen, bool isNumber, const char *dmodifiers)
+ZResult CommandHandler::doPhonebookCommand(unsigned long vval, uint8_t *vbuf, int vlen, bool isNumber, const char *dmodifiers)
 {
 	if ((vlen == 0) || (isNumber) || ((vlen == 1) && (*vbuf = '?')))
 	{
@@ -1607,7 +1607,7 @@ ZResult CommandMode::doPhonebookCommand(unsigned long vval, uint8_t *vbuf, int v
 	return ZOK;
 }
 
-ZResult CommandMode::doAnswerCommand(int vval, uint8_t *vbuf, int vlen, bool isNumber, const char *dmodifiers)
+ZResult CommandHandler::doAnswerCommand(int vval, uint8_t *vbuf, int vlen, bool isNumber, const char *dmodifiers)
 {
 	if (vval <= 0)
 	{
@@ -1618,7 +1618,7 @@ ZResult CommandMode::doAnswerCommand(int vval, uint8_t *vbuf, int vlen, bool isN
 			{
 				current = c;
 				checkOpenConnections();
-				streamMode.switchTo(c);
+				StreamMode.switchTo(c);
 				lastServerClientId = 0;
 				if (ringCounter == 0)
 				{
@@ -1656,7 +1656,7 @@ ZResult CommandMode::doAnswerCommand(int vval, uint8_t *vbuf, int vlen, bool isN
 	}
 }
 
-ZResult CommandMode::doHangupCommand(int vval, uint8_t *vbuf, int vlen, bool isNumber)
+ZResult CommandHandler::doHangupCommand(int vval, uint8_t *vbuf, int vlen, bool isNumber)
 {
 	if (vlen == 0)
 	{
@@ -1711,7 +1711,7 @@ ZResult CommandMode::doHangupCommand(int vval, uint8_t *vbuf, int vlen, bool isN
 	}
 }
 
-void CommandMode::updateAutoAnswer()
+void CommandHandler::updateAutoAnswer()
 {
 #ifdef SUPPORT_LED_PINS
 	bool setPin = (ringCounter > 0) && (autoStreamMode) && (servs != NULL);
@@ -1719,7 +1719,7 @@ void CommandMode::updateAutoAnswer()
 #endif
 }
 
-ZResult CommandMode::doLastPacket(int vval, uint8_t *vbuf, int vlen, bool isNumber)
+ZResult CommandHandler::doLastPacket(int vval, uint8_t *vbuf, int vlen, bool isNumber)
 {
 	if (!isNumber)
 		return ZERROR;
@@ -1747,7 +1747,7 @@ ZResult CommandMode::doLastPacket(int vval, uint8_t *vbuf, int vlen, bool isNumb
 	return ZIGNORE;
 }
 
-ZResult CommandMode::doEOLNCommand(int vval, uint8_t *vbuf, int vlen, bool isNumber)
+ZResult CommandHandler::doEOLNCommand(int vval, uint8_t *vbuf, int vlen, bool isNumber)
 {
 	if (isNumber)
 	{
@@ -1774,7 +1774,7 @@ ZResult CommandMode::doEOLNCommand(int vval, uint8_t *vbuf, int vlen, bool isNum
 	return ZERROR;
 }
 
-bool CommandMode::readSerialStream()
+bool CommandHandler::readSerialStream()
 {
 	bool crReceived = false;
 	while ((SerialDTE.available() > 0) && (!crReceived))
@@ -1844,7 +1844,7 @@ bool CommandMode::readSerialStream()
 	return crReceived;
 }
 
-String CommandMode::getNextSerialCommand()
+String CommandHandler::getNextSerialCommand()
 {
 	int len = eon;
 	String currentCommand = (char *)nbuf;
@@ -1862,7 +1862,7 @@ String CommandMode::getNextSerialCommand()
 	return currentCommand;
 }
 
-ZResult CommandMode::doTimeZoneSetupCommand(int vval, uint8_t *vbuf, int vlen, bool isNumber)
+ZResult CommandHandler::doTimeZoneSetupCommand(int vval, uint8_t *vbuf, int vlen, bool isNumber)
 {
 	if ((strcmp((char *)vbuf, "disabled") == 0) || (strcmp((char *)vbuf, "DISABLED") == 0))
 	{
@@ -1900,7 +1900,7 @@ ZResult CommandMode::doTimeZoneSetupCommand(int vval, uint8_t *vbuf, int vlen, b
 	return ZOK;
 }
 
-ZResult CommandMode::doSerialCommand()
+ZResult CommandHandler::doSerialCommand()
 {
 	int len = eon;
 	String sbuf = getNextSerialCommand();
@@ -1918,13 +1918,13 @@ ZResult CommandMode::doSerialCommand()
 
 	if ((sbuf.length() == 4) && (strcmp(sbuf.c_str(), "%!PS") == 0))
 	{
-		result = printMode.switchToPostScript("%!PS\n");
+		result = PrintMode.switchToPostScript("%!PS\n");
 		sendOfficialResponse(result);
 		return result;
 	}
 	else if ((sbuf.length() == 12) && (strcmp(sbuf.c_str(), "\x04grestoreall") == 0))
 	{
-		result = printMode.switchToPostScript("%!PS\ngrestoreall\n");
+		result = PrintMode.switchToPostScript("%!PS\ngrestoreall\n");
 		sendOfficialResponse(result);
 		return result;
 	}
@@ -2106,7 +2106,7 @@ ZResult CommandMode::doSerialCommand()
 						result = ZERROR;
 					else
 					{
-						streamMode.switchTo(current);
+						StreamMode.switchTo(current);
 						result = ZOK;
 					}
 				}
@@ -2360,7 +2360,7 @@ ZResult CommandMode::doSerialCommand()
 								break;
 							case 61:
 								if (sval > 0)
-									printMode.setTimeoutDelayMs(sval * 1000);
+									PrintMode.setTimeoutDelayMs(sval * 1000);
 								else
 									result = ZERROR;
 								break;
@@ -2376,7 +2376,7 @@ ZResult CommandMode::doSerialCommand()
 					vbuf[i] = lc(vbuf[i]);
 				if (strcmp((const char *)vbuf, "config") == 0)
 				{
-					configMode.switchTo();
+					ConfigMode.switchTo();
 					result = ZOK;
 				}
 #ifdef INCLUDE_SD_SHELL
@@ -2403,7 +2403,7 @@ ZResult CommandMode::doSerialCommand()
 #endif
 #endif
 				else if ((strstr((const char *)vbuf, "print") == (char *)vbuf) || (strstr((const char *)vbuf, "PRINT") == (char *)vbuf))
-					result = printMode.switchTo((char *)vbuf + 5, vlen - 5, serial.isPetsciiMode());
+					result = PrintMode.switchTo((char *)vbuf + 5, vlen - 5, serial.isPetsciiMode());
 				else
 					result = ZERROR; // todo: branch based on vbuf contents
 				break;
@@ -2857,7 +2857,7 @@ ZResult CommandMode::doSerialCommand()
 	return result;
 }
 
-void CommandMode::sendOfficialResponse(ZResult res)
+void CommandHandler::sendOfficialResponse(ZResult res)
 {
 	if (!suppressResponses)
 	{
@@ -2900,9 +2900,9 @@ void CommandMode::sendOfficialResponse(ZResult res)
 	}
 }
 
-void CommandMode::showInitMessage()
+void CommandHandler::showInitMessage()
 {
-	serial.prints(commandMode.EOLN);
+	serial.prints(CommandMode.EOLN);
 	int totalSPIFFSSize = SPIFFS.totalBytes();
 #ifdef INCLUDE_SD_SHELL
 	serial.prints("GuruModem WiFi Firmware v");
@@ -2915,15 +2915,15 @@ void CommandMode::showInitMessage()
 	// serial.prints(" (");
 	// serial.prints(compile_date);
 	// serial.prints(")");
-	serial.prints(commandMode.EOLN);
+	serial.prints(CommandMode.EOLN);
 	char s[100];
 	sprintf(s, "sdk=%s chipid=%d cpu@%d", ESP.getSdkVersion(), ESP.getChipRevision(), ESP.getCpuFreqMHz());
 	serial.prints(s);
-	serial.prints(commandMode.EOLN);
+	serial.prints(CommandMode.EOLN);
 	sprintf(s, "totsize=%dk hsize=%dk fsize=%dk speed=%dm", (ESP.getFlashChipSize() / 1024), (ESP.getFreeHeap() / 1024), totalSPIFFSSize / 1024, (ESP.getFlashChipSpeed() / 1000000));
 
 	serial.prints(s);
-	serial.prints(commandMode.EOLN);
+	serial.prints(CommandMode.EOLN);
 	if (wifiSSI.length() > 0)
 	{
 		if (wifiConnected)
@@ -2933,13 +2933,13 @@ void CommandMode::showInitMessage()
 	}
 	else
 		serial.prints("INITIALIZED");
-	serial.prints(commandMode.EOLN);
+	serial.prints(CommandMode.EOLN);
 	serial.prints("READY.");
-	serial.prints(commandMode.EOLN);
+	serial.prints(CommandMode.EOLN);
 	serial.flush();
 }
 
-uint8_t *CommandMode::doStateMachine(uint8_t *buf, int *bufLen, char **machineState, String *machineQue, char *stateMachine)
+uint8_t *CommandHandler::doStateMachine(uint8_t *buf, int *bufLen, char **machineState, String *machineQue, char *stateMachine)
 {
 	if ((stateMachine != NULL) && ((stateMachine)[0] != 0) && (*machineState != NULL) && ((*machineState)[0] != 0))
 	{
@@ -3026,7 +3026,7 @@ uint8_t *CommandMode::doStateMachine(uint8_t *buf, int *bufLen, char **machineSt
 	return buf;
 }
 
-uint8_t *CommandMode::doMaskOuts(uint8_t *buf, int *bufLen, char *maskOuts)
+uint8_t *CommandHandler::doMaskOuts(uint8_t *buf, int *bufLen, char *maskOuts)
 {
 	if (maskOuts[0] != 0)
 	{
@@ -3045,7 +3045,7 @@ uint8_t *CommandMode::doMaskOuts(uint8_t *buf, int *bufLen, char *maskOuts)
 	return buf;
 }
 
-void CommandMode::reSendLastPacket(WiFiClientNode *conn)
+void CommandHandler::reSendLastPacket(WiFiClientNode *conn)
 {
 	if (conn == NULL)
 	{
@@ -3127,7 +3127,7 @@ void CommandMode::reSendLastPacket(WiFiClientNode *conn)
 	}
 }
 
-bool CommandMode::clearPlusProgress()
+bool CommandHandler::clearPlusProgress()
 {
 	if (currentExpiresTimeMs > 0)
 		currentExpiresTimeMs = 0;
@@ -3135,7 +3135,7 @@ bool CommandMode::clearPlusProgress()
 		currentExpiresTimeMs = millis() + 1000;
 }
 
-bool CommandMode::checkPlusEscape()
+bool CommandHandler::checkPlusEscape()
 {
 	if ((currentExpiresTimeMs > 0) && (millis() > currentExpiresTimeMs))
 	{
@@ -3172,7 +3172,7 @@ bool CommandMode::checkPlusEscape()
 	return false;
 }
 
-void CommandMode::sendNextPacket()
+void CommandHandler::sendNextPacket()
 {
 	if (serial.availableForWrite() < packetSize)
 		return;
@@ -3304,7 +3304,7 @@ void CommandMode::sendNextPacket()
 	}
 }
 
-void CommandMode::sendConnectionNotice(int id)
+void CommandHandler::sendConnectionNotice(int id)
 {
 	preEOLN(EOLN);
 	if (numericResponses)
@@ -3342,7 +3342,7 @@ void CommandMode::sendConnectionNotice(int id)
 	serial.prints(EOLN);
 }
 
-void CommandMode::acceptNewConnection()
+void CommandHandler::acceptNewConnection()
 {
 	WiFiServerNode *serv = servs;
 	while (serv != nullptr)
@@ -3445,7 +3445,7 @@ void CommandMode::acceptNewConnection()
 	}
 }
 
-void CommandMode::serialIncoming()
+void CommandHandler::serialIncoming()
 {
 	bool crReceived = readSerialStream();
 	clearPlusProgress(); // every serial incoming, without a plus, breaks progress
@@ -3456,7 +3456,7 @@ void CommandMode::serialIncoming()
 	doSerialCommand();
 }
 
-void CommandMode::loop()
+void CommandHandler::loop()
 {
 	checkPlusEscape();
 	acceptNewConnection();
@@ -3468,4 +3468,4 @@ void CommandMode::loop()
 	checkBaudChange();
 }
 
-CommandMode commandMode;
+CommandHandler CommandMode;

@@ -1,13 +1,14 @@
-#ifndef STREAM_MODE_H
-#define STREAM_MODE_H
+#ifndef STREAM_HANDLER_H
+#define STREAM_HANDLER_H
 
 #include "main.h"
+#include "ModeHandler.h"
 #include "WiFiClientNode.h"
 #include "SerialBuffer.h"
 
 #define ZSTREAM_ESC_BUF_MAX 10
 
-class StreamMode : public ZMode
+class StreamHandler : public ModeHandler
 {
 private:
 	WiFiClientNode *current = nullptr;
@@ -38,6 +39,6 @@ public:
 	void loop();
 };
 
-extern StreamMode streamMode;
+extern StreamHandler StreamMode;
 
 #endif

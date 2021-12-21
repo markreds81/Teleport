@@ -3,14 +3,14 @@
 #include "Button.h"
 #include "SerialBuffer.h"
 #include "WiFiClientNode.h"
-#include "CommandMode.h"
+#include "CommandHandler.h"
 #include "Logger.h"
 #include "SerialBuffer.h"
 #include "PhoneBookEntry.h"
 #include "RTClock.h"
 
 HardwareSerial SerialDTE(UART_NUM_2);
-ZMode *currentMode;
+ModeHandler *currentMode;
 Button resetButton(PIN_FACTORY_RESET);
 int wifiNextNodeId = 0;
 bool wifiConnected = false;
@@ -128,7 +128,7 @@ int checkOpenConnections()
 			{
 				baudState = BS_SWITCH_NORMAL_NEXT;
 			}
-			if (currentMode == &commandMode)
+			if (currentMode == &CommandMode)
 			{
 				clearSerialOutBuffer();
 			}
@@ -225,8 +225,8 @@ void setup()
 		SerialDebug.println("SPIFFS Formatted.");
 	}
 
-	currentMode = &commandMode;
-	commandMode.loadConfig();
+	currentMode = &CommandMode;
+	CommandMode.loadConfig();
 	PhoneBookEntry::loadPhonebook();
 	dcdStatus = dcdInactive;
 	digitalWrite(PIN_DCD, dcdStatus);
