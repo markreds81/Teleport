@@ -2,6 +2,7 @@
 #define SERIAL_BUFFER_H
 
 #include "main.h"
+#include "z_types.h"
 
 #define SER_BUFSIZE 0x7F
 #define SER_WRITE_BUFSIZE 4096

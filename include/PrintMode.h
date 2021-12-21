@@ -2,6 +2,7 @@
 #define PRINT_MODE_H
 
 #include "main.h"
+#include "z_types.h"
 #include "WiFiClientNode.h"
 #include "SerialBuffer.h"
 #include <SPIFFS.h>

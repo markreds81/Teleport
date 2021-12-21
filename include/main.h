@@ -33,32 +33,6 @@ typedef uint32_t SerialConfig;
 
 const char compile_date[] = __DATE__ " " __TIME__;
 
-enum ZResult {
-	ZOK,
-	ZERROR,
-	ZCONNECT,
-	ZNOCARRIER,
-	ZNOANSWER,
-	ZIGNORE,
-	ZIGNORE_SPECIAL
-};
-
-enum FlowControlType {
-	FCT_RTSCTS = 0,
-	FCT_NORMAL = 1,
-	FCT_AUTOOFF = 2,
-	FCT_MANUAL = 3,
-	FCT_DISABLED = 4,
-	FCT_INVALID = 5
-};
-
-enum BaudState {
-	BS_NORMAL,
-	BS_SWITCH_TEMP_NEXT,
-	BS_SWITCHED_TEMP,
-	BS_SWITCH_NORMAL_NEXT
-};
-
 class ZMode {
 public:
 	virtual void serialIncoming();

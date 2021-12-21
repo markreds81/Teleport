@@ -6,6 +6,7 @@
 #define UNDERFLOW_BUF_MAX_SIZE              256
 
 #include "main.h"
+#include "z_types.h"
 #include <WiFiClientSecure.h>
 
 WiFiClient *createWiFiClient(bool SSL);

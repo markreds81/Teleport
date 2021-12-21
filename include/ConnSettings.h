@@ -2,6 +2,7 @@
 #define CONN_SETTINGS_H
 
 #include "main.h"
+#include "z_types.h"
 
 enum ConnFlag
 {
