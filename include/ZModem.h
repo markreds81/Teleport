@@ -16,6 +16,12 @@
 #define DEFAULT_SERIAL_CONFIG SERIAL_8N1
 #define MAX_COMMAND_SIZE 256
 
+#define ASCII_BS 8
+#define ASCII_XON 17
+#define ASCII_XOFF 19
+#define ASCII_DC4 20
+#define ASCII_DELETE 127
+
 #include <Arduino.h>
 
 enum ZResult
@@ -29,23 +35,42 @@ enum ZResult
 	ZIGNORE_SPECIAL
 };
 
+enum FlowControlType
+{
+	FCT_RTSCTS = 0,
+	FCT_NORMAL = 1,
+	FCT_AUTOOFF = 2,
+	FCT_MANUAL = 3,
+	FCT_DISABLED = 4,
+	FCT_INVALID = 5
+};
+
 class ZModem
 {
 private:
 	HardwareSerial &serialPort;
 	uint8_t buffer[MAX_COMMAND_SIZE];
 	size_t buflen;
+	char CR;
+	char LF;
+	char EC;
+	char BS;
 	char ECS[32];
-	bool doEcho;
+	bool echoActive;
+	bool numericResponses;
 	unsigned long lastNonPlusTimeMs = 0;
 	unsigned long currentExpiresTimeMs = 0;
+	FlowControlType flowControlType;
 
+	char lc(char c);
 	bool readSerialStream();
 	void clearPlusProgress();
+	void showResponse(ZResult rc);
+
 	ZResult doSerialCommand();
 
 public:
-	ZModem(HardwareSerial serial);
+	ZModem(HardwareSerial &serial);
 	virtual ~ZModem();
 
 	void factoryReset();
