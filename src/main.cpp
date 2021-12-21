@@ -1,6 +1,5 @@
-#define DEBUG 1
-
 #include <Arduino.h>
+#include "debug.h"
 #include "ZModem.h"
 #include "Button.h"
 

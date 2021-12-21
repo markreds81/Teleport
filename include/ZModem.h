@@ -51,11 +51,14 @@ private:
 	HardwareSerial &serialPort;
 	uint8_t buffer[MAX_COMMAND_SIZE];
 	size_t buflen;
-	char CR;
-	char LF;
-	char EC;
+	char CRLF[4];
+    char LFCR[4];
+    char LF[2];
+    char CR[2];
 	char BS;
+	char EC;
 	char ECS[32];
+	String EOLN;
 	bool echoActive;
 	bool numericResponses;
 	unsigned long lastNonPlusTimeMs = 0;
@@ -63,6 +66,7 @@ private:
 	FlowControlType flowControlType;
 
 	char lc(char c);
+	void setDefaults();
 	bool readSerialStream();
 	void clearPlusProgress();
 	void showResponse(ZResult rc);

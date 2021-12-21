@@ -4,14 +4,6 @@
 
 ZModem::ZModem(HardwareSerial &serial) : serialPort(serial)
 {
-	echoActive = true;
-	numericResponses = false;
-	flowControlType = FCT_DISABLED;
-	CR = '\r';
-	LF = '\n';
-	BS = ASCII_BS;
-	EC = '+';
-	strcpy(ECS, "+++");
 	buffer[0] = '\0';
 	buflen = 0;
 }
@@ -31,6 +23,21 @@ char ZModem::lc(char c)
 		return c - 96;
 	}
 	return c;
+}
+
+void ZModem::setDefaults()
+{
+	echoActive = true;
+	numericResponses = false;
+	flowControlType = FCT_DISABLED;
+	BS = ASCII_BS;
+	EC = '+';
+	strcpy(CRLF, "\r\n");
+	strcpy(LFCR, "\n\r");
+	strcpy(LF, "\n");
+	strcpy(CR, "\r");
+	memset(ECS, EC, 3);
+	EOLN = CRLF;
 }
 
 bool ZModem::readSerialStream()
@@ -119,25 +126,26 @@ void ZModem::showResponse(ZResult rc)
 	switch (rc)
 	{
 	case ZOK:
-		if (numericResponses) {
+		serialPort.print(EOLN);
+		if (numericResponses)
+		{
 			serialPort.print("0");
-		} else {
+		}
+		else
+		{
 			serialPort.print("OK");
 		}
-		serialPort.print("\r\n");
+		serialPort.print(EOLN);
 		break;
 	}
 }
 
 ZResult ZModem::doSerialCommand()
 {
-	DPRINTLN("doSerialCommand");
+	String cmdline = (char *)buffer;
+	cmdline.trim();
 
-	CString cmd((char *)buffer, buflen);
-
-	DPRINTLN(cmd);
-
-	if (cmd.length() == 2 && lc(cmd[0]) == 'a' && lc(cmd[1]) == '/')
+	if (cmdline.length() == 2 && lc(cmdline[0]) == 'a' && lc(cmdline[1]) == '/')
 	{
 		DPRINTLN("previous command");
 	}
@@ -145,13 +153,16 @@ ZResult ZModem::doSerialCommand()
 	int i = 0;
 	ZResult rc = ZOK;
 
-	while (i < buflen - 1 && (lc(cmd[i]) != 'a' || lc(cmd[i + 1]) != 't'))
+	while (i < buflen - 1 && (lc(cmdline[i]) != 'a' || lc(cmdline[i + 1]) != 't'))
 	{
 		i++;
 	}
 
-	if (i < buflen - 1 && lc(cmd[i]) == 'a' && lc(cmd[i]) == 't')
+	if (i < buflen - 1 && lc(cmdline[i]) == 'a' && lc(cmdline[i + 1]) == 't')
 	{
+		DPRINTLN(i);
+		DPRINTLN(buflen);
+		showResponse(rc);
 	}
 
 	return rc;
@@ -181,6 +192,8 @@ void ZModem::begin()
 
 	serialPort.begin(DEFAULT_BAUD_RATE, DEFAULT_SERIAL_CONFIG);
 	serialPort.setRxBufferSize(MAX_COMMAND_SIZE);
+
+	 setDefaults();
 }
 
 void ZModem::tick()
