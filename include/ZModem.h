@@ -1,19 +1,8 @@
 #ifndef ZMODEM_H
 #define ZMODEM_H
 
-#define PIN_FACTORY_RESET GPIO_NUM_0
-#define PIN_LED_HS GPIO_NUM_2
-#define PIN_LED_WIFI GPIO_NUM_22
-#define PIN_LED_DATA GPIO_NUM_33
-#define PIN_DCD GPIO_NUM_14
-#define PIN_CTS GPIO_NUM_13
-#define PIN_RTS GPIO_NUM_15 // unused
-#define PIN_RI GPIO_NUM_32
-#define PIN_DSR GPIO_NUM_12
-#define PIN_DTR GPIO_NUM_27
+#include "config.h"
 
-#define DEFAULT_BAUD_RATE 1200
-#define DEFAULT_SERIAL_CONFIG SERIAL_8N1
 #define MAX_COMMAND_SIZE 256
 
 #define ASCII_BS 8
@@ -21,6 +10,8 @@
 #define ASCII_XOFF 19
 #define ASCII_DC4 20
 #define ASCII_DELETE 127
+
+const char compile_date[] = __DATE__ " " __TIME__;
 
 #include <Arduino.h>
 
@@ -64,14 +55,19 @@ private:
 	unsigned long lastNonPlusTimeMs = 0;
 	unsigned long currentExpiresTimeMs = 0;
 	FlowControlType flowControlType;
+	bool wifiConnected;
+	String wifiSSI;
 
 	char lc(char c);
 	void setDefaults();
 	bool readSerialStream();
 	void clearPlusProgress();
-	void showResponse(ZResult rc);
+	void showInitMessage();
+	void sendResponse(ZResult rc);
 
-	ZResult doSerialCommand();
+	ZResult execSerialCommand();
+	ZResult execReset();
+	ZResult execInfo(int vval, uint8_t *vbuf, int vlen, bool isNumber);
 
 public:
 	ZModem(HardwareSerial &serial);

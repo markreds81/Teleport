@@ -1,18 +1,18 @@
-#include <Arduino.h>
-#include "debug.h"
+#include "ZSerial.h"
 #include "ZModem.h"
+#include "ZDebug.h"
 #include "Button.h"
+#include <Arduino.h>
 
 Button resetButton(PIN_FACTORY_RESET);
-ZModem modem(Serial2);
+ZModem modem(SerialPort);
 
 void setup()
 {
 #if DEBUG
-	Serial.begin(115200);
-	Serial.setDebugOutput(true);
-	Serial.println("Debug port open and ready.");
+	DebugPort.begin();
 #endif
+	
 	resetButton.begin();
 	modem.begin();	
 }
