@@ -308,26 +308,26 @@ ZResult ZModem::execSerialCommand()
 						{
 							i++;
 						}
-						else
-						{
-							vlen += len - i;
-							i = len;
-						}
-						for (int k = vstart; k < vstart + len; k++)
-						{
-							char c = sbuf[k];
-							isNumber = ((c == '-') || ((c >= '0') && (c <= '9'))) && isNumber;
-						}
 					}
 					else
 					{
-						while ((i < len) && (!((lc(sbuf[i]) >= 'a') && (lc(sbuf[i]) <= 'z'))) && (sbuf[i] != '&') && (sbuf[i] != '%') && (sbuf[i] != ' '))
-						{
-							char c = sbuf[i];
-							isNumber = ((c == '-') || ((c >= '0') && (c <= '9'))) && isNumber;
-							vlen++;
-							i++;
-						}
+						vlen += len - i;
+						i = len;
+					}
+					for (int k = vstart; k < vstart + len; k++)
+					{
+						char c = sbuf[k];
+						isNumber = ((c == '-') || ((c >= '0') && (c <= '9'))) && isNumber;
+					}
+				}
+				else
+				{
+					while ((i < len) && (!((lc(sbuf[i]) >= 'a') && (lc(sbuf[i]) <= 'z'))) && (sbuf[i] != '&') && (sbuf[i] != '%') && (sbuf[i] != ' '))
+					{
+						char c = sbuf[i];
+						isNumber = ((c == '-') || ((c >= '0') && (c <= '9'))) && isNumber;
+						vlen++;
+						i++;
 					}
 				}
 			}
@@ -339,15 +339,15 @@ ZResult ZModem::execSerialCommand()
 				memcpy(vbuf, sbuf.c_str() + vstart, vlen);
 				if (vlen > 0 && isNumber)
 				{
-					String finalNum = "";
+					String num = "";
 					for (uint8_t *v = vbuf; v < (vbuf + vlen); v++)
 					{
 						if ((*v >= '0') && (*v <= '9'))
 						{
-							finalNum += (char)*v;
+							num += (char)*v;
 						}
 					}
-					vval = atol(finalNum.c_str());
+					vval = atol(num.c_str());
 				}
 			}
 			if (vlen > 0)
