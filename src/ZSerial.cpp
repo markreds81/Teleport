@@ -23,7 +23,7 @@ int ZSerial::available()
         lastActivity = millis();
         digitalWrite(PIN_LED_DATA, HIGH);
     }
-    else if ((millis() - lastActivity) > 50)
+    else if ((millis() - lastActivity) > 10)
     {
         digitalWrite(PIN_LED_DATA, LOW);
     }

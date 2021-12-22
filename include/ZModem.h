@@ -50,8 +50,10 @@ private:
 	char EC;
 	char ECS[32];
 	String EOLN;
-	bool echoActive;
+	bool commandEcho;
 	bool numericResponses;
+	bool suppressEcho;
+	bool suppressResponses;
 	unsigned long lastNonPlusTimeMs = 0;
 	unsigned long currentExpiresTimeMs = 0;
 	FlowControlType flowControlType;
@@ -65,7 +67,7 @@ private:
 	void showInitMessage();
 	void sendResponse(ZResult rc);
 
-	ZResult execSerialCommand();
+	ZResult execCommand();
 	ZResult execReset();
 	ZResult execInfo(int vval, uint8_t *vbuf, int vlen, bool isNumber);
 

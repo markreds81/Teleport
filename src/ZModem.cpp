@@ -31,8 +31,10 @@ char ZModem::lc(char c)
 
 void ZModem::setDefaults()
 {
-	echoActive = true;
+	commandEcho = true;
 	numericResponses = false;
+	suppressResponses = false;
+	suppressEcho = false;
 	flowControlType = FCT_DISABLED;
 	BS = ASCII_BS;
 	EC = '+';
@@ -52,7 +54,7 @@ bool ZModem::readSerialStream()
 		uint8_t c = serialPort.read();
 		if (c == '\n' || c == '\r')
 		{
-			if (echoActive)
+			if (commandEcho)
 			{
 				serialPort.write(c);
 			}
@@ -89,7 +91,7 @@ bool ZModem::readSerialStream()
 			}
 			else
 			{
-				if (echoActive)
+				if (commandEcho)
 				{
 					serialPort.write(c);
 				}
@@ -119,11 +121,11 @@ void ZModem::showInitMessage()
 	serialPort.print("ZModem Firmware v");
 	serialPort.print(ZMODEM_VERSION);
 	serialPort.print(EOLN);
-	
+
 	serialPort.printf("sdk=%s chipid=%d cpu@%d", ESP.getSdkVersion(), ESP.getChipRevision(), ESP.getCpuFreqMHz());
 	serialPort.print(EOLN);
 
-	serialPort.printf("totsize=%dk hsize=%dk fsize=%dk speed=%dm", (ESP.getFlashChipSize()/1024), (ESP.getFreeHeap()/1024),SPIFFS.totalBytes()/1024, (ESP.getFlashChipSpeed()/1000000));
+	serialPort.printf("totsize=%dk hsize=%dk fsize=%dk speed=%dm", (ESP.getFlashChipSize() / 1024), (ESP.getFreeHeap() / 1024), SPIFFS.totalBytes() / 1024, (ESP.getFlashChipSpeed() / 1000000));
 	serialPort.print(EOLN);
 
 	if (wifiSSI.length() > 0)
@@ -210,7 +212,7 @@ void ZModem::sendResponse(ZResult rc)
 	}
 }
 
-ZResult ZModem::execSerialCommand()
+ZResult ZModem::execCommand()
 {
 	String sbuf = (char *)buffer;
 	int len = buflen;
@@ -225,7 +227,6 @@ ZResult ZModem::execSerialCommand()
 	}
 
 	int i = 0;
-	ZResult rc = ZOK;
 
 	while (i < len - 1 && (lc(sbuf[i]) != 'a' || lc(sbuf[i + 1]) != 't'))
 	{
@@ -240,6 +241,7 @@ ZResult ZModem::execSerialCommand()
 		int vstart = 0;
 		int vlen = 0;
 		String dmodifiers = "";
+		ZResult rc = ZOK;
 
 		while (i < len)
 		{
@@ -371,7 +373,14 @@ ZResult ZModem::execSerialCommand()
 				DPRINTLN("answer");
 				break;
 			case 'e':
-				DPRINTLN("echo");
+				if (!isNumber)
+				{
+					rc = ZERROR;
+				}
+				else
+				{
+					commandEcho = (vval > 0);
+				}
 				break;
 			case 'f':
 				DPRINTLN("flowcontrol");
@@ -419,10 +428,24 @@ ZResult ZModem::execSerialCommand()
 				DPRINTLN("w");
 				break;
 			case 'v':
-				DPRINTLN("v");
+				if (!isNumber)
+				{
+					rc = ZERROR;
+				}
+				else
+				{
+					numericResponses = (vval == 0);
+				}
 				break;
 			case 'q':
-				DPRINTLN("q");
+				if (!isNumber)
+				{
+					rc = ZERROR;
+				}
+				else
+				{
+					suppressResponses = (vval > 0);
+				}
 				break;
 			case 's':
 				DPRINTLN("s");
@@ -492,14 +515,9 @@ ZResult ZModem::execSerialCommand()
 				rc = ZERROR;
 			}
 		}
-
-		if (rc != ZOK || i >= len)
-		{
-			sendResponse(rc);
-		}
+		return rc;
 	}
-
-	return rc;
+	return ZERROR;
 }
 
 ZResult ZModem::execReset()
@@ -511,42 +529,42 @@ ZResult ZModem::execInfo(int vval, uint8_t *vbuf, int vlen, bool isNumber)
 {
 	switch (vval)
 	{
-		case 0:
-			showInitMessage();
-			break;
-		case 1:
-		case 5:
-			break;
-		case 2:
-			serialPort.print(WiFi.localIP().toString());
-			serialPort.print(EOLN);
-			break;
-		case 3:
-			serialPort.print(wifiSSI);
-    		serialPort.print(EOLN);
-			break;
-		case 4:
-			serialPort.print(ZMODEM_VERSION);
-    		serialPort.print(EOLN);
-			break;
-		case 6:
-			serialPort.print(WiFi.macAddress());
-			serialPort.print(EOLN);
-			break;
-		case 7:
-			break;
-		case 8:
-			serialPort.print(compile_date);
-			serialPort.print(EOLN);
-			break;
-		case 9:
-			break;
-		case 10:
-			break;
-		case 11:
-			break;
-		default:
-			return ZERROR;
+	case 0:
+		showInitMessage();
+		break;
+	case 1:
+	case 5:
+		break;
+	case 2:
+		serialPort.print(WiFi.localIP().toString());
+		serialPort.print(EOLN);
+		break;
+	case 3:
+		serialPort.print(wifiSSI);
+		serialPort.print(EOLN);
+		break;
+	case 4:
+		serialPort.print(ZMODEM_VERSION);
+		serialPort.print(EOLN);
+		break;
+	case 6:
+		serialPort.print(WiFi.macAddress());
+		serialPort.print(EOLN);
+		break;
+	case 7:
+		break;
+	case 8:
+		serialPort.print(compile_date);
+		serialPort.print(EOLN);
+		break;
+	case 9:
+		break;
+	case 10:
+		break;
+	case 11:
+		break;
+	default:
+		return ZERROR;
 	}
 	return ZOK;
 }
@@ -594,7 +612,11 @@ void ZModem::tick()
 		clearPlusProgress();
 		if (crReceived && buflen != 0)
 		{
-			execSerialCommand();
+			ZResult rc = execCommand();
+			if (!suppressResponses)
+			{
+				sendResponse(rc);
+			}
 		}
 	}
 }
