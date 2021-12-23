@@ -60,9 +60,15 @@ private:
 	bool wifiConnected;
 	String hostname;
 	String wifiSSI;
+	String wifiPSW;
+	IPAddress *staticIP = nullptr;
+	IPAddress *staticDNS = nullptr;
+	IPAddress *staticGW = nullptr;
+	IPAddress *staticSN = nullptr;
 
 	char lc(char c);
 	void setDefaults();
+	void setStaticIPs(IPAddress *ip, IPAddress *dns, IPAddress *gateway, IPAddress *subnet);
 	void loadSettings();
 	void saveSettings();
 	bool connectWiFi(const char* ssid, const char* password, IPAddress *ip, IPAddress *dns, IPAddress *gateway, IPAddress *subnet);
@@ -74,6 +80,7 @@ private:
 	ZResult execCommand();
 	ZResult execReset();
 	ZResult execInfo(int vval, uint8_t *vbuf, int vlen, bool isNumber);
+	ZResult execWiFi(int vval, uint8_t *vbuf, int vlen, bool isNumber, const char *dmodifiers);
 
 public:
 	ZModem(HardwareSerial &serial);

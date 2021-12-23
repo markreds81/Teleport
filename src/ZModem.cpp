@@ -1,8 +1,11 @@
 #include "ZModem.h"
 #include "ZDebug.h"
 #include "CString.h"
+#include "Settings.h"
 #include <WiFi.h>
 #include <SPIFFS.h>
+
+#define ENC_TYPE_NONE WIFI_AUTH_OPEN
 
 ZModem::ZModem(HardwareSerial &serial) : serialPort(serial)
 {
@@ -46,6 +49,30 @@ void ZModem::setDefaults()
 	EOLN = CRLF;
 }
 
+void ZModem::setStaticIPs(IPAddress *ip, IPAddress *dns, IPAddress *gateway, IPAddress *subnet)
+{
+	if (staticIP != nullptr)
+	{
+		free(staticIP);
+	}
+	if (staticDNS != nullptr)
+	{
+		free(staticDNS);
+	}	
+	if (staticGW != nullptr)
+	{
+		free(staticGW);
+	}	
+	if (staticSN != nullptr)
+	{
+		free(staticSN);
+	}
+	staticIP = ip;	
+	staticDNS = dns;	
+	staticGW = gateway;	
+	staticSN = subnet;
+}
+
 bool ZModem::connectWiFi(const char* ssid, const char* password, IPAddress *ip, IPAddress *dns, IPAddress *gateway, IPAddress *subnet)
 {
 	while (WiFi.status() == WL_CONNECTED)
@@ -71,25 +98,25 @@ bool ZModem::connectWiFi(const char* ssid, const char* password, IPAddress *ip, 
 	}
 
 	WiFi.begin(ssid, password);
-	bool connected = WiFi.status() == WL_CONNECTED && strcmp(WiFi.localIP().toString().c_str(), "0.0.0.0") != 0;
+	wifiConnected = WiFi.status() == WL_CONNECTED && strcmp(WiFi.localIP().toString().c_str(), "0.0.0.0") != 0;
 	int attemps = 0;
-	while (!connected && attemps < 30)
+	while (!wifiConnected && attemps < 30)
 	{
 		attemps++;
-		if (!connected)
+		if (!wifiConnected)
 		{
 			delay(500);
 		}
-		connected = WiFi.status() == WL_CONNECTED && strcmp(WiFi.localIP().toString().c_str(), "0.0.0.0") != 0;
+		wifiConnected = WiFi.status() == WL_CONNECTED && strcmp(WiFi.localIP().toString().c_str(), "0.0.0.0") != 0;
 	}
-	if (!connected)
+	if (!wifiConnected)
 	{
 		WiFi.disconnect();
 	}
 
-	digitalWrite(PIN_LED_WIFI, connected ? HIGH : LOW);
+	digitalWrite(PIN_LED_WIFI, wifiConnected ? HIGH : LOW);
 
-	return connected;
+	return wifiConnected;
 }
 
 bool ZModem::readSerialStream()
@@ -471,7 +498,7 @@ ZResult ZModem::execCommand()
 				DPRINTLN("y");
 				break;
 			case 'w':
-				DPRINTLN("w");
+				rc = execWiFi(vval, vbuf, vlen, isNumber, dmodifiers.c_str());
 				break;
 			case 'v':
 				if (!isNumber)
@@ -620,6 +647,118 @@ ZResult ZModem::execInfo(int vval, uint8_t *vbuf, int vlen, bool isNumber)
 	return ZOK;
 }
 
+ZResult ZModem::execWiFi(int vval, uint8_t *vbuf, int vlen, bool isNumber, const char *dmodifiers)
+{
+	if (vlen == 0 || vval > 0)
+	{
+		int n = WiFi.scanNetworks();
+		if (vval > 0 && vval < n)
+		{
+			n = vval;
+		}
+		serialPort.print(EOLN);
+		for (int i = 0; i < n; ++i)
+		{
+			serialPort.print(WiFi.SSID(i));
+			serialPort.print(" (");
+			serialPort.print(WiFi.RSSI(i));
+			serialPort.print(")");
+			serialPort.print(WiFi.encryptionType(i) == ENC_TYPE_NONE ? " " : "*");
+			serialPort.print(EOLN);
+			delay(10);
+		}
+	}
+	else
+	{
+		char *x = strstr((char *)vbuf, ",");
+		char *ssi = (char *)vbuf;
+		char *psw = ssi + strlen(ssi);
+		IPAddress *ip[4];
+		for (int i = 0; i < 4; i++)
+		{
+			ip[i] = nullptr;
+		}
+		if (x > 0)
+		{
+			*x = 0;
+			psw = x + 1;
+			x = strstr(psw, ",");
+			if (x > 0)
+			{
+				int numCommasFound = 0;
+				int numDotsFound = 0;
+				char *comPos[4];
+				for (char *e = psw + strlen(psw) - 1; e > psw; e--)
+				{
+					if (*e == ',')
+					{
+						if (numDotsFound != 3)
+						{
+							break;
+						}
+						numDotsFound = 0;
+						if (numCommasFound < 4)
+						{
+							numCommasFound++;
+							comPos[4 - numCommasFound] = e;
+						}
+						if (numCommasFound == 4)
+						{
+							break;
+						}
+					}
+					else if (*e == '.')
+					{
+						numDotsFound++;
+					}
+					else if (strchr("0123456789 ", *e) == NULL)
+					{
+						break;
+					}
+				}
+				if (numCommasFound == 4)
+				{
+					for (int i = 0; i < 4; i++)
+					{
+						*(comPos[i]) = 0;
+					}
+					for (int i = 0; i < 4; i++)
+					{
+						ip[i] = Settings::parseIP(comPos[i] + 1);
+						if (ip[i] == NULL)
+						{
+							while (--i >= 0)
+							{
+								free(ip[i]);
+								ip[i] = nullptr;
+							}
+							break;
+						}
+					}
+				}
+			}
+		}
+
+		if (!connectWiFi(ssi, psw, ip[0], ip[1], ip[2], ip[3]))
+		{
+			for (int i = 0; i < 4; i++)
+			{
+				if (ip[i] != nullptr)
+				{
+					free(ip[i]);
+				}
+			}
+			digitalWrite(PIN_LED_WIFI, LOW);
+			return ZERROR;
+		}
+		wifiSSI = ssi;
+		wifiPSW = psw;
+		setStaticIPs(ip[0], ip[1], ip[2], ip[3]);
+		digitalWrite(PIN_LED_WIFI, HIGH);
+	}
+	return ZOK;
+}
+
 void ZModem::factoryReset()
 {
 }
@@ -627,6 +766,7 @@ void ZModem::factoryReset()
 void ZModem::begin()
 {
 	pinMode(PIN_LED_HS, OUTPUT);
+	pinMode(PIN_LED_DATA, OUTPUT);
 	pinMode(PIN_LED_WIFI, OUTPUT);
 
 	digitalWrite(PIN_LED_DATA, HIGH);
@@ -652,6 +792,7 @@ void ZModem::begin()
 	serialPort.setRxBufferSize(MAX_COMMAND_SIZE);
 
 	setDefaults();
+	showInitMessage();
 }
 
 void ZModem::tick()
