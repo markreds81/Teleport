@@ -46,6 +46,52 @@ void ZModem::setDefaults()
 	EOLN = CRLF;
 }
 
+bool ZModem::connectWiFi(const char* ssid, const char* password, IPAddress *ip, IPAddress *dns, IPAddress *gateway, IPAddress *subnet)
+{
+	while (WiFi.status() == WL_CONNECTED)
+	{
+		WiFi.disconnect();
+		delay(100);
+		yield();
+	}
+
+	if (hostname.length() > 0)
+	{
+		tcpip_adapter_set_hostname(TCPIP_ADAPTER_IF_STA, hostname.c_str());
+		WiFi.hostname(hostname);
+	}
+
+	WiFi.mode(WIFI_STA);
+	if (ip != NULL && dns != NULL && gateway != NULL && subnet != NULL)
+	{
+		if (!WiFi.config(*ip, *gateway, *subnet, *dns))
+		{
+			return false;
+		}
+	}
+
+	WiFi.begin(ssid, password);
+	bool connected = WiFi.status() == WL_CONNECTED && strcmp(WiFi.localIP().toString().c_str(), "0.0.0.0") != 0;
+	int attemps = 0;
+	while (!connected && attemps < 30)
+	{
+		attemps++;
+		if (!connected)
+		{
+			delay(500);
+		}
+		connected = WiFi.status() == WL_CONNECTED && strcmp(WiFi.localIP().toString().c_str(), "0.0.0.0") != 0;
+	}
+	if (!connected)
+	{
+		WiFi.disconnect();
+	}
+
+	digitalWrite(PIN_LED_WIFI, connected ? HIGH : LOW);
+
+	return connected;
+}
+
 bool ZModem::readSerialStream()
 {
 	bool crReceived = false;
@@ -536,24 +582,29 @@ ZResult ZModem::execInfo(int vval, uint8_t *vbuf, int vlen, bool isNumber)
 	case 5:
 		break;
 	case 2:
+		serialPort.print(EOLN);
 		serialPort.print(WiFi.localIP().toString());
 		serialPort.print(EOLN);
 		break;
 	case 3:
+		serialPort.print(EOLN);
 		serialPort.print(wifiSSI);
 		serialPort.print(EOLN);
 		break;
 	case 4:
+		serialPort.print(EOLN);
 		serialPort.print(ZMODEM_VERSION);
 		serialPort.print(EOLN);
 		break;
 	case 6:
+		serialPort.print(EOLN);
 		serialPort.print(WiFi.macAddress());
 		serialPort.print(EOLN);
 		break;
 	case 7:
 		break;
 	case 8:
+		serialPort.print(EOLN);
 		serialPort.print(compile_date);
 		serialPort.print(EOLN);
 		break;
@@ -576,7 +627,6 @@ void ZModem::factoryReset()
 void ZModem::begin()
 {
 	pinMode(PIN_LED_HS, OUTPUT);
-	pinMode(PIN_LED_DATA, OUTPUT);
 	pinMode(PIN_LED_WIFI, OUTPUT);
 
 	digitalWrite(PIN_LED_DATA, HIGH);

@@ -58,10 +58,14 @@ private:
 	unsigned long currentExpiresTimeMs = 0;
 	FlowControlType flowControlType;
 	bool wifiConnected;
+	String hostname;
 	String wifiSSI;
 
 	char lc(char c);
 	void setDefaults();
+	void loadSettings();
+	void saveSettings();
+	bool connectWiFi(const char* ssid, const char* password, IPAddress *ip, IPAddress *dns, IPAddress *gateway, IPAddress *subnet);
 	bool readSerialStream();
 	void clearPlusProgress();
 	void showInitMessage();
