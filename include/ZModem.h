@@ -1,47 +1,24 @@
 #ifndef ZMODEM_H
 #define ZMODEM_H
 
-#include "config.h"
+#include "z/config.h"
+#include "z/types.h"
+#include "ZSettings.h"
+#include <Arduino.h>
 
 #define MAX_COMMAND_SIZE 256
 
-#define ASCII_BS 8
-#define ASCII_XON 17
-#define ASCII_XOFF 19
-#define ASCII_DC4 20
-#define ASCII_DELETE 127
-
 const char compile_date[] = __DATE__ " " __TIME__;
-
-#include <Arduino.h>
-
-enum ZResult
-{
-	ZOK,
-	ZERROR,
-	ZCONNECT,
-	ZNOCARRIER,
-	ZNOANSWER,
-	ZIGNORE,
-	ZIGNORE_SPECIAL
-};
-
-enum FlowControlType
-{
-	FCT_RTSCTS = 0,
-	FCT_NORMAL = 1,
-	FCT_AUTOOFF = 2,
-	FCT_MANUAL = 3,
-	FCT_DISABLED = 4,
-	FCT_INVALID = 5
-};
 
 class ZModem
 {
 private:
 	HardwareSerial &serialPort;
+	ZSettings settings;
 	uint8_t buffer[MAX_COMMAND_SIZE];
 	size_t buflen;
+	unsigned long lastNonPlusTimeMs = 0;
+	unsigned long currentExpiresTimeMs = 0;
 	char CRLF[4];
     char LFCR[4];
     char LF[2];
@@ -49,28 +26,14 @@ private:
 	char BS;
 	char EC;
 	char ECS[32];
-	String EOLN;
-	bool commandEcho;
-	bool numericResponses;
-	bool suppressEcho;
-	bool suppressResponses;
-	unsigned long lastNonPlusTimeMs = 0;
-	unsigned long currentExpiresTimeMs = 0;
-	FlowControlType flowControlType;
 	bool wifiConnected;
-	String hostname;
-	String wifiSSI;
-	String wifiPSW;
 	IPAddress *staticIP = nullptr;
 	IPAddress *staticDNS = nullptr;
 	IPAddress *staticGW = nullptr;
 	IPAddress *staticSN = nullptr;
 
 	char lc(char c);
-	void setDefaults();
 	void setStaticIPs(IPAddress *ip, IPAddress *dns, IPAddress *gateway, IPAddress *subnet);
-	void loadSettings();
-	void saveSettings();
 	bool connectWiFi(const char* ssid, const char* password, IPAddress *ip, IPAddress *dns, IPAddress *gateway, IPAddress *subnet);
 	bool readSerialStream();
 	void clearPlusProgress();
@@ -81,6 +44,7 @@ private:
 	ZResult execReset();
 	ZResult execInfo(int vval, uint8_t *vbuf, int vlen, bool isNumber);
 	ZResult execWiFi(int vval, uint8_t *vbuf, int vlen, bool isNumber, const char *dmodifiers);
+	ZResult execEOLN(int vval, uint8_t *vbuf, int vlen, bool isNumber);
 
 public:
 	ZModem(HardwareSerial &serial);

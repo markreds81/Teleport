@@ -1,6 +1,35 @@
-#include "Settings.h"
+#include "ZSettings.h"
 
-IPAddress *Settings::parseIP(const char *str)
+ZSettings::ZSettings()
+{
+
+}
+
+ZSettings::~ZSettings()
+{
+    
+}
+
+void ZSettings::setDefaults()
+{
+    doEcho = true;
+	numericResponses = false;
+	suppressResponses = false;
+	flowControlType = FCT_DISABLED;
+	EOLN = "\r\n";
+}
+
+void ZSettings::load()
+{
+
+}
+
+void ZSettings::save()
+{
+
+}
+
+IPAddress *ZSettings::parseIP(const char *str)
 {
     uint8_t dots[4];
     int dotDex = 0;

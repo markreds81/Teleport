@@ -1,5 +1,5 @@
 #include "ZSerial.h"
-#include "config.h"
+#include "z/config.h"
 
 ZSerial::ZSerial(int uart_nr) : HardwareSerial(uart_nr)
 {
