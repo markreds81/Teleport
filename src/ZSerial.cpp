@@ -43,5 +43,3 @@ size_t ZSerial::write(const uint8_t *buffer, size_t size)
     digitalWrite(PIN_LED_DATA, HIGH);
     return Base::write(buffer, size);
 }
-
-ZSerial SerialPort(2);

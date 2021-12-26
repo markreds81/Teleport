@@ -4,8 +4,9 @@
 #include <WiFi.h>
 #include <SPIFFS.h>
 
-ZModem::ZModem(HardwareSerial &serial) : serialPort(serial)
+ZModem::ZModem(ZSerial &serial) : serialPort(serial), streamMode(serial)
 {
+	dataMode = nullptr;
 	buffer[0] = '\0';
 	buflen = 0;
 	BS = ASCII_BS;
@@ -876,7 +877,14 @@ ZResult ZModem::execDial(unsigned long vval, uint8_t *vbuf, int vlen, bool isNum
 	}
 	else
 	{
-		DPRINTLN("Start a ne connection");
+		DPRINTLN("Start a new connection");
+		WiFiClient *client = new WiFiClient();
+		if (client->connect("192.168.1.48", 49152))
+		{
+			DPRINTLN("connected");
+			streamMode.switchTo(client);
+			dataMode = &streamMode;
+		}
 	}
 	return ZOK;
 }
@@ -928,7 +936,14 @@ void ZModem::begin()
 
 void ZModem::tick()
 {
-	if (serialPort.available() > 0)
+	if (dataMode != nullptr)
+	{
+		if (!dataMode->tick())
+		{
+			dataMode = nullptr;
+		}
+	}
+	else if (serialPort.available() > 0)
 	{
 		bool crReceived = readSerialStream();
 		clearPlusProgress();

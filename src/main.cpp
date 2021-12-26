@@ -2,10 +2,12 @@
 #include "ZModem.h"
 #include "ZDebug.h"
 #include "Button.h"
+#include "driver/uart.h"
 #include <Arduino.h>
 
-Button resetButton(PIN_FACTORY_RESET);
-ZModem modem(SerialPort);
+Button reset(PIN_FACTORY_RESET);
+ZSerial serial(UART_NUM_2);
+ZModem modem(serial);
 
 void setup()
 {
@@ -13,13 +15,13 @@ void setup()
 	DebugPort.begin();
 #endif
 	
-	resetButton.begin();
+	reset.begin();
 	modem.begin();	
 }
 
 void loop()
 {
-	if (resetButton.pressed())
+	if (reset.pressed())
 	{
 		modem.factoryReset();
 	}

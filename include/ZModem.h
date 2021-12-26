@@ -3,7 +3,10 @@
 
 #include "z/config.h"
 #include "z/types.h"
+#include "ZSerial.h"
 #include "ZSettings.h"
+#include "ZDataMode.h"
+#include "ZStreamMode.h"
 #include <Arduino.h>
 
 #define MAX_COMMAND_SIZE 256
@@ -13,8 +16,10 @@ const char compile_date[] = __DATE__ " " __TIME__;
 class ZModem
 {
 private:
-	HardwareSerial &serialPort;
+	ZSerial &serialPort;
 	ZSettings settings;
+	ZDataMode *dataMode;
+	ZStreamMode streamMode;
 	uint8_t buffer[MAX_COMMAND_SIZE];
 	size_t buflen;
 	unsigned long lastNonPlusTimeMs = 0;
@@ -49,7 +54,7 @@ private:
 	ZResult execDial(unsigned long vval, uint8_t *vbuf, int vlen, bool isNumber, const char *dmodifiers);
 
 public:
-	ZModem(HardwareSerial &serial);
+	ZModem(ZSerial &serial);
 	virtual ~ZModem();
 
 	void factoryReset();
