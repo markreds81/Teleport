@@ -1,0 +1,33 @@
+#ifndef ZTYPES_H
+#define ZTYPES_H
+
+#define ASCII_BS 8
+#define ASCII_XON 17
+#define ASCII_XOFF 19
+#define ASCII_DC4 20
+#define ASCII_DELETE 127
+
+#define ENC_TYPE_NONE WIFI_AUTH_OPEN
+
+enum FlowControlType
+{
+	FCT_RTSCTS = 0,
+	FCT_NORMAL = 1,
+	FCT_AUTOOFF = 2,
+	FCT_MANUAL = 3,
+	FCT_DISABLED = 4,
+	FCT_INVALID = 5
+};
+
+enum ZResult
+{
+	ZOK,
+	ZERROR,
+	ZCONNECT,
+	ZNOCARRIER,
+	ZNOANSWER,
+	ZIGNORE,
+	ZIGNORE_SPECIAL
+};
+
+#endif
