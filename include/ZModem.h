@@ -26,7 +26,7 @@ private:
 	char BS;
 	char EC;
 	char ECS[32];
-	bool wifiConnected;
+	String lastCommand;
 	IPAddress *staticIP = nullptr;
 	IPAddress *staticDNS = nullptr;
 	IPAddress *staticGW = nullptr;
@@ -34,7 +34,7 @@ private:
 
 	char lc(char c);
 	void setStaticIPs(IPAddress *ip, IPAddress *dns, IPAddress *gateway, IPAddress *subnet);
-	bool connectWiFi(const char* ssid, const char* password, IPAddress *ip, IPAddress *dns, IPAddress *gateway, IPAddress *subnet);
+	bool connectWiFi(const char* ssid, const char* pswd, IPAddress *ip, IPAddress *dns, IPAddress *gateway, IPAddress *subnet);
 	bool readSerialStream();
 	void clearPlusProgress();
 	void showInitMessage();
@@ -45,6 +45,7 @@ private:
 	ZResult execInfo(int vval, uint8_t *vbuf, int vlen, bool isNumber);
 	ZResult execWiFi(int vval, uint8_t *vbuf, int vlen, bool isNumber, const char *dmodifiers);
 	ZResult execEOLN(int vval, uint8_t *vbuf, int vlen, bool isNumber);
+	ZResult execBaud(int vval, uint8_t *vbuf, int vlen);
 
 public:
 	ZModem(HardwareSerial &serial);

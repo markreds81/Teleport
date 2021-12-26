@@ -1,13 +1,16 @@
 #include "ZSettings.h"
+#include "ZDebug.h"
+#include "ZBase64.h"
+#include "z/config.h"
 
 ZSettings::ZSettings()
 {
-
+    // NOP
 }
 
 ZSettings::~ZSettings()
 {
-    
+    // NOP
 }
 
 void ZSettings::setDefaults()
@@ -15,18 +18,168 @@ void ZSettings::setDefaults()
     doEcho = true;
 	numericResponses = false;
 	suppressResponses = false;
+    baudRate = DEFAULT_BAUD_RATE;
 	flowControlType = FCT_DISABLED;
 	EOLN = "\r\n";
+    hostname = "";
+    wifiSSID = "";
+    wifiPSWD = "";
+}
+
+int ZSettings::scanline(File *file, uint8_t *dst, int size)
+{
+    int i = 0;
+    while (file->read(&dst[i], 1) > 0 && dst[i] != '\n' && i < size)
+    {
+        i++;
+    }
+    dst[i] = '\0';
+    return i;
+}
+
+int ZSettings::getvalue(File *file, const char *key, char *value, int size, bool decode)
+{
+    size_t len;
+    uint8_t buf[128];
+
+    value[0] = '\0';
+    file->seek(0);
+    while ((len = scanline(file, buf, sizeof(buf))) > 0)
+    {
+        if (buf[0] != '#' && strstr((const char *)buf, key) != NULL)
+        {
+            int i = strlen(key);
+            int j = 0;
+            while (buf[i] != '=' && i < len)
+            {
+                i++;
+            }
+            i++;
+            while (buf[i] == ' ' && i < len)
+            {
+                i++;
+            }
+            if (decode)
+            {
+                char *s = (char *)buf + i;
+                while (buf[i] != '\r' && buf[i] != '\n' && i < len)
+                {
+                    i++;
+                }
+                buf[i] = '\0';
+                j = ZBase64::decodeLength(s);
+                ZBase64::decode(s, (uint8_t *)value);
+            }
+            else
+            {
+                while (buf[i] != '\r' && buf[i] != '\n' && i < len && j < size)
+                {
+                    value[j++] = buf[i++];
+                }
+            }
+            value[j] = '\0';
+            return j;
+        }
+    }
+    return 0;
+}
+
+int ZSettings::putvalue(File *file, const char *key, const char *value, bool encode)
+{
+    int bytesWritten = 0;
+
+    bytesWritten += file->print(key);
+    bytesWritten += file->print(" = ");
+    if (encode)
+    {
+        size_t len = strlen(value);
+        char encoded[ZBase64::encodeLength(len)];
+        ZBase64::encode((const uint8_t *)value, len, encoded);
+        bytesWritten += file->println(encoded);
+    }
+    else
+    {
+        bytesWritten += file->println(value);
+    }
+    
+    return bytesWritten;
+}
+
+int ZSettings::putvalue(File *file, const char *key, int value)
+{
+    int bytesWritten = 0;
+
+    bytesWritten += file->print(key);
+    bytesWritten += file->print(" = ");
+    bytesWritten += file->println(value);
+
+    return bytesWritten;
 }
 
 void ZSettings::load()
 {
+    int len;
+    char buf[128];
 
+    setDefaults();
+
+    File file = SPIFFS.open(SETTINGS_FILE_NAME, "r");
+    if (file)
+    {
+        DPRINTLN(file.readString());
+
+        if ((len = getvalue(&file, "EOLN", buf, sizeof(buf), true)) > 0)
+        {
+            DPRINT("EOLN:");
+            for (int i = 0; i < len; i++)
+                DPRINTF(" 0x%02X", buf[i]);
+            DPRINTLN();
+            EOLN = String(buf);
+        }
+
+        if (getvalue(&file, "baudRate", buf, sizeof(buf)))
+        {
+            baudRate = atoi(buf);
+        }
+
+        if (getvalue(&file, "hostname", buf, sizeof(buf)))
+        {
+            hostname = String(buf);
+        }
+
+        if (getvalue(&file, "wifiSSID", buf, sizeof(buf)))
+        {
+            wifiSSID = String(buf);
+        }
+
+        if (getvalue(&file, "wifiPSWD", buf, sizeof(buf)))
+        {
+            wifiPSWD = String(buf);
+        }
+
+        file.close();
+    }
+    else
+    {
+        DPRINTLN("Unable to read config file");
+    }
 }
 
 void ZSettings::save()
 {
+    File file = SPIFFS.open(SETTINGS_FILE_NAME, "w");
+    int bytes = 0;
 
+    bytes += putvalue(&file, "version", ZMODEM_VERSION);
+    bytes += putvalue(&file, "EOLN", EOLN.c_str(), true);
+    bytes += putvalue(&file, "baudRate", baudRate);
+    bytes += putvalue(&file, "hostname", hostname.c_str());
+    bytes += putvalue(&file, "wifiSSID", wifiSSID.c_str());
+    bytes += putvalue(&file, "wifiPSWD", wifiPSWD.c_str());
+    
+    file.close();
+
+    DPRINTF("Settings saved (%d bytes written)\n", bytes);
 }
 
 IPAddress *ZSettings::parseIP(const char *str)

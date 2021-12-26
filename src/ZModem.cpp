@@ -8,9 +8,9 @@ ZModem::ZModem(HardwareSerial &serial) : serialPort(serial)
 {
 	buffer[0] = '\0';
 	buflen = 0;
-	wifiConnected = false;
 	BS = ASCII_BS;
 	EC = '+';
+	lastCommand = "";
 	strcpy(CRLF, "\r\n");
 	strcpy(LFCR, "\n\r");
 	strcpy(LF, "\n");
@@ -59,7 +59,7 @@ void ZModem::setStaticIPs(IPAddress *ip, IPAddress *dns, IPAddress *gateway, IPA
 	staticSN = subnet;
 }
 
-bool ZModem::connectWiFi(const char *ssid, const char *password, IPAddress *ip, IPAddress *dns, IPAddress *gateway, IPAddress *subnet)
+bool ZModem::connectWiFi(const char *ssid, const char *pswd, IPAddress *ip, IPAddress *dns, IPAddress *gateway, IPAddress *subnet)
 {
 	while (WiFi.status() == WL_CONNECTED)
 	{
@@ -67,13 +67,7 @@ bool ZModem::connectWiFi(const char *ssid, const char *password, IPAddress *ip, 
 		delay(100);
 		yield();
 	}
-
-	if (settings.hostname.length() > 0)
-	{
-		tcpip_adapter_set_hostname(TCPIP_ADAPTER_IF_STA, settings.hostname.c_str());
-		WiFi.hostname(settings.hostname);
-	}
-
+	digitalWrite(PIN_LED_WIFI, LOW);
 	WiFi.mode(WIFI_STA);
 	if (ip != NULL && dns != NULL && gateway != NULL && subnet != NULL)
 	{
@@ -82,27 +76,32 @@ bool ZModem::connectWiFi(const char *ssid, const char *password, IPAddress *ip, 
 			return false;
 		}
 	}
-
-	WiFi.begin(ssid, password);
-	wifiConnected = WiFi.status() == WL_CONNECTED && strcmp(WiFi.localIP().toString().c_str(), "0.0.0.0") != 0;
+	DPRINTF("Connecting to %s ", ssid);
+	WiFi.begin(ssid, pswd);
 	int attemps = 0;
-	while (!wifiConnected && attemps < 30)
+	while (attemps < 30)
 	{
-		attemps++;
-		if (!wifiConnected)
+		if (WiFi.status() == WL_CONNECTED && strcmp(WiFi.localIP().toString().c_str(), "0.0.0.0") != 0)
 		{
+			DPRINTLN("OK");
+			if (settings.hostname.length() > 0)
+			{
+				tcpip_adapter_set_hostname(TCPIP_ADAPTER_IF_STA, settings.hostname.c_str());
+				WiFi.hostname(settings.hostname);
+			}
+			digitalWrite(PIN_LED_WIFI, HIGH);
+			return true;
+		}
+		else
+		{
+			DPRINT(".");
 			delay(500);
 		}
-		wifiConnected = WiFi.status() == WL_CONNECTED && strcmp(WiFi.localIP().toString().c_str(), "0.0.0.0") != 0;
+		attemps++;
 	}
-	if (!wifiConnected)
-	{
-		WiFi.disconnect();
-	}
-
-	digitalWrite(PIN_LED_WIFI, wifiConnected ? HIGH : LOW);
-
-	return wifiConnected;
+	DPRINTLN("failed");
+	WiFi.disconnect();
+	return false;
 }
 
 bool ZModem::readSerialStream()
@@ -163,11 +162,8 @@ bool ZModem::readSerialStream()
 					continue;
 				}
 				buffer[buflen++] = c;
-				if ((buflen >= MAX_COMMAND_SIZE) || ((buflen == 2) && (buffer[1] == '/') && lc(buffer[0]) == 'a'))
-				{
-					buflen--;
-					crReceived = true;
-				}
+				buffer[buflen] = '\0';
+				crReceived = (buflen >= MAX_COMMAND_SIZE) || (buflen == 2 && buffer[1] == '/' && lc(buffer[0]) == 'a');
 			}
 		}
 	}
@@ -187,15 +183,15 @@ void ZModem::showInitMessage()
 	serialPort.printf("totsize=%dk hsize=%dk fsize=%dk speed=%dm", (ESP.getFlashChipSize() / 1024), (ESP.getFreeHeap() / 1024), SPIFFS.totalBytes() / 1024, (ESP.getFlashChipSpeed() / 1000000));
 	serialPort.print(settings.EOLN);
 
-	if (settings.wifiSSI.length() > 0)
+	if (settings.wifiSSID.length() > 0)
 	{
-		if (wifiConnected)
+		if (WiFi.status() == WL_CONNECTED)
 		{
-			serialPort.print(("CONNECTED TO " + settings.wifiSSI + " (" + WiFi.localIP().toString().c_str() + ")").c_str());
+			serialPort.print(("CONNECTED TO " + settings.wifiSSID + " (" + WiFi.localIP().toString().c_str() + ")").c_str());
 		}
 		else
 		{
-			serialPort.print(("ERROR ON " + settings.wifiSSI).c_str());
+			serialPort.print(("ERROR ON " + settings.wifiSSID).c_str());
 		}
 	}
 	else
@@ -282,7 +278,8 @@ ZResult ZModem::execCommand()
 
 	if (sbuf.length() == 2 && lc(sbuf[0]) == 'a' && lc(sbuf[1]) == '/')
 	{
-		DPRINTLN("previous command");
+		sbuf = lastCommand;
+		len = lastCommand.length();
 	}
 
 	int i = 0;
@@ -411,6 +408,7 @@ ZResult ZModem::execCommand()
 					vval = atol(num.c_str());
 				}
 			}
+			DPRINTF("Command: %s\n", sbuf.c_str());
 			if (vlen > 0)
 			{
 				DPRINTF("Proc: %c %lu '%s'\n", cmd, vval, vbuf);
@@ -419,7 +417,6 @@ ZResult ZModem::execCommand()
 			{
 				DPRINTF("Proc: %c %lu ''\n", cmd, vval);
 			}
-
 			switch (cmd)
 			{
 			case 'z':
@@ -451,7 +448,7 @@ ZResult ZModem::execCommand()
 				rc = execEOLN(vval, vbuf, vlen, isNumber);
 				break;
 			case 'b':
-				DPRINTLN("b");
+				rc = execBaud(vval, vbuf, vlen);
 				break;
 			case 't':
 				DPRINTLN("t");
@@ -513,8 +510,61 @@ ZResult ZModem::execCommand()
 				DPRINTLN("+");
 				break;
 			case '$':
-				DPRINTLN("$");
+			{
+				int eqMark = 0;
+				for (int i = 0; vbuf[i] != '\0'; i++)
+				{
+					if (vbuf[i] == '=')
+					{
+						eqMark = i;
+						break;
+					}
+					else
+					{
+						vbuf[i] = lc(vbuf[i]);
+					}
+				}
+				if (!eqMark)
+				{
+					rc = ZERROR;
+				}
+				else
+				{
+					vbuf[eqMark] = '\0';
+					String var = (char *)vbuf;
+					var.trim();
+					String val = (char *)(vbuf + eqMark + 1);
+					val.trim();
+					rc = (val.length() == 0 && strcmp(var.c_str(), "pass") != 0) ? ZERROR : ZOK;
+					if (rc == ZOK)
+					{
+						DPRINTLN(var);
+						DPRINTLN(val);
+						if (strcmp(var.c_str(), "ssid") == 0)
+						{
+							settings.wifiSSID = val;
+						}
+						else if (strcmp(var.c_str(), "pass") == 0)
+						{
+							settings.wifiPSWD = val;
+						}
+						else if (strcmp(var.c_str(), "mdns") == 0)
+						{
+							settings.hostname = val;
+						}
+						else if (strcmp(var.c_str(), "sb") == 0)
+						{
+							rc = execBaud(atoi(val.c_str()), (uint8_t *)val.c_str(), val.length());
+						}
+						else
+						{
+							rc = ZERROR;
+						}
+					}
+				}
 				break;
+			}
+				
 			case '%':
 				rc = ZERROR;
 				break;
@@ -525,10 +575,10 @@ ZResult ZModem::execCommand()
 					DPRINTLN("k");
 					break;
 				case 'l':
-					DPRINTLN("loadConfig");
+					settings.load();
 					break;
 				case 'w':
-					DPRINTLN("saveConfig");
+					settings.save();
 					break;
 				case 'f':
 					DPRINTLN("f");
@@ -574,6 +624,7 @@ ZResult ZModem::execCommand()
 				rc = ZERROR;
 			}
 		}
+		lastCommand = sbuf;
 		return rc;
 	}
 	return ZERROR;
@@ -601,7 +652,7 @@ ZResult ZModem::execInfo(int vval, uint8_t *vbuf, int vlen, bool isNumber)
 		break;
 	case 3:
 		serialPort.print(settings.EOLN);
-		serialPort.print(settings.wifiSSI);
+		serialPort.print(settings.wifiSSID);
 		serialPort.print(settings.EOLN);
 		break;
 	case 4:
@@ -657,8 +708,8 @@ ZResult ZModem::execWiFi(int vval, uint8_t *vbuf, int vlen, bool isNumber, const
 	else
 	{
 		char *x = strstr((char *)vbuf, ",");
-		char *ssi = (char *)vbuf;
-		char *psw = ssi + strlen(ssi);
+		char *ssid = (char *)vbuf;
+		char *pswd = ssid + strlen(ssid);
 		IPAddress *ip[4];
 		for (int i = 0; i < 4; i++)
 		{
@@ -667,14 +718,14 @@ ZResult ZModem::execWiFi(int vval, uint8_t *vbuf, int vlen, bool isNumber, const
 		if (x > 0)
 		{
 			*x = 0;
-			psw = x + 1;
-			x = strstr(psw, ",");
+			pswd = x + 1;
+			x = strstr(pswd, ",");
 			if (x > 0)
 			{
 				int numCommasFound = 0;
 				int numDotsFound = 0;
 				char *comPos[4];
-				for (char *e = psw + strlen(psw) - 1; e > psw; e--)
+				for (char *e = pswd + strlen(pswd) - 1; e > pswd; e--)
 				{
 					if (*e == ',')
 					{
@@ -725,7 +776,7 @@ ZResult ZModem::execWiFi(int vval, uint8_t *vbuf, int vlen, bool isNumber, const
 			}
 		}
 
-		if (!connectWiFi(ssi, psw, ip[0], ip[1], ip[2], ip[3]))
+		if (!connectWiFi(ssid, pswd, ip[0], ip[1], ip[2], ip[3]))
 		{
 			for (int i = 0; i < 4; i++)
 			{
@@ -737,8 +788,8 @@ ZResult ZModem::execWiFi(int vval, uint8_t *vbuf, int vlen, bool isNumber, const
 			digitalWrite(PIN_LED_WIFI, LOW);
 			return ZERROR;
 		}
-		settings.wifiSSI = ssi;
-		settings.wifiPSW = psw;
+		settings.wifiSSID = ssid;
+		settings.wifiPSWD = pswd;
 		setStaticIPs(ip[0], ip[1], ip[2], ip[3]);
 		digitalWrite(PIN_LED_WIFI, HIGH);
 	}
@@ -755,21 +806,38 @@ ZResult ZModem::execEOLN(int vval, uint8_t *vbuf, int vlen, bool isNumber)
 			{
 			case 0:
 				settings.EOLN = CR;
+				DPRINTF("EOLN = %s\n", "\\r");
 				break;
 			case 1:
 				settings.EOLN = CRLF;
+				DPRINTF("EOLN = %s\n", "\\r\\n");
 				break;
 			case 2:
 				settings.EOLN = LFCR;
+				DPRINTF("EOLN = %s\n", "\\n\\r");
 				break;
 			case 3:
 				settings.EOLN = LF;
+				DPRINTF("EOLN = %s\n", "\\n");
 				break;
 			}
 			return ZOK;
 		}
 	}
 	return ZERROR;
+}
+
+ZResult ZModem::execBaud(int vval, uint8_t *vbuf, int vlen)
+{
+	DPRINTF("change baud rate to: %d\n", vval);
+	serialPort.flush();
+	delay(500);
+	serialPort.end();
+
+	settings.baudRate = vval;
+	serialPort.begin(vval);
+
+	return ZOK;
 }
 
 void ZModem::factoryReset()
@@ -800,11 +868,18 @@ void ZModem::begin()
 		SPIFFS.begin();
 		DPRINTLN("SPIFFS Formatted.");
 	}
+	else{
+		settings.load();
+	}
 
-	serialPort.begin(DEFAULT_BAUD_RATE, DEFAULT_SERIAL_CONFIG);
+	serialPort.begin(settings.baudRate, DEFAULT_SERIAL_CONFIG);
 	serialPort.setRxBufferSize(MAX_COMMAND_SIZE);
+	DPRINTF("COM port open at %d bit/s\n", settings.baudRate);	
 
-	settings.load();
+	if (settings.wifiSSID.length() > 0)
+	{
+		connectWiFi(settings.wifiSSID.c_str(), settings.wifiPSWD.c_str(), staticIP, staticDNS, staticGW, staticSN);
+	}
 
 	showInitMessage();
 }
