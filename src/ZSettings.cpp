@@ -18,6 +18,7 @@ void ZSettings::setDefaults()
     doEcho = true;
 	numericResponses = false;
 	suppressResponses = false;
+    longResponses = false;
     baudRate = DEFAULT_BAUD_RATE;
 	flowControlType = FCT_DISABLED;
 	EOLN = "\r\n";
@@ -66,7 +67,7 @@ int ZSettings::getvalue(File *file, const char *key, char *value, int size, bool
                 {
                     i++;
                 }
-                buf[i] = '\0';
+                buf[i] = '\0';  // terminate before deconding
                 j = ZBase64::decodeLength(s);
                 ZBase64::decode(s, (uint8_t *)value);
             }
@@ -77,7 +78,7 @@ int ZSettings::getvalue(File *file, const char *key, char *value, int size, bool
                     value[j++] = buf[i++];
                 }
             }
-            value[j] = '\0';
+            value[j] = '\0';    // terminate the final string value
             return j;
         }
     }
@@ -137,11 +138,6 @@ void ZSettings::load()
             EOLN = String(buf);
         }
 
-        if (getvalue(&file, "baudRate", buf, sizeof(buf)))
-        {
-            baudRate = atoi(buf);
-        }
-
         if (getvalue(&file, "hostname", buf, sizeof(buf)))
         {
             hostname = String(buf);
@@ -155,6 +151,31 @@ void ZSettings::load()
         if (getvalue(&file, "wifiPSWD", buf, sizeof(buf)))
         {
             wifiPSWD = String(buf);
+        }
+
+        if (getvalue(&file, "baudRate", buf, sizeof(buf)))
+        {
+            baudRate = atoi(buf);
+        }
+
+        if (getvalue(&file, "doEcho", buf, sizeof(buf)))
+        {
+            doEcho = atoi(buf) != 0 ? 1 : 0;
+        }
+
+        if (getvalue(&file, "numericResponses", buf, sizeof(buf)))
+        {
+            numericResponses = atoi(buf) != 0 ? 1 : 0;
+        }
+
+        if (getvalue(&file, "suppressResponses", buf, sizeof(buf)))
+        {
+            suppressResponses = atoi(buf) != 0 ? 1 : 0;
+        }
+
+        if (getvalue(&file, "longResponses", buf, sizeof(buf)))
+        {
+            longResponses = atoi(buf) != 0 ? 1 : 0;
         }
 
         file.close();
@@ -172,10 +193,14 @@ void ZSettings::save()
 
     bytes += putvalue(&file, "version", ZMODEM_VERSION);
     bytes += putvalue(&file, "EOLN", EOLN.c_str(), true);
-    bytes += putvalue(&file, "baudRate", baudRate);
     bytes += putvalue(&file, "hostname", hostname.c_str());
     bytes += putvalue(&file, "wifiSSID", wifiSSID.c_str());
     bytes += putvalue(&file, "wifiPSWD", wifiPSWD.c_str());
+    bytes += putvalue(&file, "baudRate", baudRate);
+    bytes += putvalue(&file, "doEcho", doEcho ? 1 : 0);
+    bytes += putvalue(&file, "numericResponses", numericResponses ? 1 : 0);
+    bytes += putvalue(&file, "suppressResponses", suppressResponses ? 1 : 0);
+    bytes += putvalue(&file, "longResponses", longResponses ? 1 : 0);
     
     file.close();
 

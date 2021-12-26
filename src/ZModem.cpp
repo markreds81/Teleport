@@ -218,11 +218,11 @@ void ZModem::clearPlusProgress()
 
 void ZModem::sendResponse(ZResult rc)
 {
+	serialPort.print(settings.EOLN);
 	switch (rc)
 	{
 	case ZOK:
 		DPRINTF("Response: %s\n", "OK");
-		serialPort.print(settings.EOLN);
 		if (settings.numericResponses)
 		{
 			serialPort.print("0");
@@ -231,11 +231,9 @@ void ZModem::sendResponse(ZResult rc)
 		{
 			serialPort.print("OK");
 		}
-		serialPort.print(settings.EOLN);
 		break;
 	case ZERROR:
 		DPRINTF("Response: %s\n", "ERROR");
-		serialPort.print(settings.EOLN);
 		if (settings.numericResponses)
 		{
 			serialPort.print("4");
@@ -244,11 +242,9 @@ void ZModem::sendResponse(ZResult rc)
 		{
 			serialPort.print("ERROR");
 		}
-		serialPort.print(settings.EOLN);
 		break;
 	case ZNOANSWER:
 		DPRINTF("Response: %s\n", "NOANSWER");
-		serialPort.print(settings.EOLN);
 		if (settings.numericResponses)
 		{
 			serialPort.print("8");
@@ -257,7 +253,6 @@ void ZModem::sendResponse(ZResult rc)
 		{
 			serialPort.print("NO ANSWER");
 		}
-		serialPort.print(settings.EOLN);
 		break;
 	case ZCONNECT:
 		DPRINTF("Response: %s\n", "connected");
@@ -265,6 +260,7 @@ void ZModem::sendResponse(ZResult rc)
 	default:
 		DPRINTF("Response: %d\n", rc);
 	}
+	serialPort.print(settings.EOLN);
 }
 
 ZResult ZModem::execCommand()
@@ -372,7 +368,7 @@ ZResult ZModem::execCommand()
 						vlen += len - i;
 						i = len;
 					}
-					for (int k = vstart; k < vstart + len; k++)
+					for (int k = vstart; k < vstart + vlen; k++)
 					{
 						char c = sbuf[k];
 						isNumber = ((c == '-') || ((c >= '0') && (c <= '9'))) && isNumber;
@@ -457,7 +453,7 @@ ZResult ZModem::execCommand()
 				DPRINTLN("h");
 				break;
 			case 'd':
-				DPRINTLN("d");
+				rc = execDial(vval, vbuf, vlen, isNumber, dmodifiers.c_str());
 				break;
 			case 'p':
 				DPRINTLN("p");
@@ -564,7 +560,7 @@ ZResult ZModem::execCommand()
 				}
 				break;
 			}
-				
+
 			case '%':
 				rc = ZERROR;
 				break;
@@ -644,43 +640,70 @@ ZResult ZModem::execInfo(int vval, uint8_t *vbuf, int vlen, bool isNumber)
 		break;
 	case 1:
 	case 5:
+		serialPort.print(settings.EOLN);
+		serialPort.print("AT");
+		serialPort.printf("%s%d", "B", settings.baudRate);
+		serialPort.printf("%s%d", "E", settings.doEcho ? 1 : 0);
+		serialPort.printf("%s%d", "Q", settings.suppressResponses ? 1 : 0);
+		if (vval == 5)
+		{
+			serialPort.printf("%s%d", "V", settings.numericResponses ? 1 : 0);
+			serialPort.printf("%s%d", "X", settings.longResponses ? 1 : 0);
+		}
+		switch (settings.flowControlType)
+		{
+		case FCT_RTSCTS:
+			serialPort.printf("%s%d", "F", 0);
+			break;
+		case FCT_NORMAL:
+			serialPort.printf("%s%d", "F", 1);
+			break;
+		case FCT_AUTOOFF:
+			serialPort.printf("%s%d", "F", 2);
+			break;
+		case FCT_MANUAL:
+			serialPort.printf("%s%d", "F", 3);
+			break;
+		case FCT_DISABLED:
+			serialPort.printf("%s%d", "F", 4);
+			break;
+		case FCT_INVALID:
+			break;
+		}
+		if (settings.EOLN == CR)
+			serialPort.printf("%s%d", "R", 0);
+		else if (settings.EOLN == CRLF)
+			serialPort.printf("%s%d", "R", 1);
+		else if (settings.EOLN == LFCR)
+			serialPort.printf("%s%d", "R", 2);
+		else if (settings.EOLN == LF)
+			serialPort.printf("%s%d", "R", 3);
 		break;
 	case 2:
 		serialPort.print(settings.EOLN);
 		serialPort.print(WiFi.localIP().toString());
-		serialPort.print(settings.EOLN);
 		break;
 	case 3:
 		serialPort.print(settings.EOLN);
 		serialPort.print(settings.wifiSSID);
-		serialPort.print(settings.EOLN);
 		break;
 	case 4:
 		serialPort.print(settings.EOLN);
 		serialPort.print(ZMODEM_VERSION);
-		serialPort.print(settings.EOLN);
 		break;
 	case 6:
 		serialPort.print(settings.EOLN);
 		serialPort.print(WiFi.macAddress());
-		serialPort.print(settings.EOLN);
-		break;
-	case 7:
 		break;
 	case 8:
 		serialPort.print(settings.EOLN);
 		serialPort.print(compile_date);
-		serialPort.print(settings.EOLN);
-		break;
-	case 9:
-		break;
-	case 10:
-		break;
-	case 11:
 		break;
 	default:
+		serialPort.print(settings.EOLN);
 		return ZERROR;
 	}
+
 	return ZOK;
 }
 
@@ -840,6 +863,24 @@ ZResult ZModem::execBaud(int vval, uint8_t *vbuf, int vlen)
 	return ZOK;
 }
 
+ZResult ZModem::execDial(unsigned long vval, uint8_t *vbuf, int vlen, bool isNumber, const char *dmodifiers)
+{
+	DPRINTLN(vval);
+	if (vlen == 0)
+	{
+		DPRINTLN("streamMode.switchTo");
+	}
+	else if (vval >= 0 && isNumber)
+	{
+		DPRINTLN("Phonebook entry");
+	}
+	else
+	{
+		DPRINTLN("Start a ne connection");
+	}
+	return ZOK;
+}
+
 void ZModem::factoryReset()
 {
 }
@@ -868,13 +909,14 @@ void ZModem::begin()
 		SPIFFS.begin();
 		DPRINTLN("SPIFFS Formatted.");
 	}
-	else{
+	else
+	{
 		settings.load();
 	}
 
 	serialPort.begin(settings.baudRate, DEFAULT_SERIAL_CONFIG);
 	serialPort.setRxBufferSize(MAX_COMMAND_SIZE);
-	DPRINTF("COM port open at %d bit/s\n", settings.baudRate);	
+	DPRINTF("COM port open at %d bit/s\n", settings.baudRate);
 
 	if (settings.wifiSSID.length() > 0)
 	{

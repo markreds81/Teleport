@@ -46,6 +46,7 @@ private:
 	ZResult execWiFi(int vval, uint8_t *vbuf, int vlen, bool isNumber, const char *dmodifiers);
 	ZResult execEOLN(int vval, uint8_t *vbuf, int vlen, bool isNumber);
 	ZResult execBaud(int vval, uint8_t *vbuf, int vlen);
+	ZResult execDial(unsigned long vval, uint8_t *vbuf, int vlen, bool isNumber, const char *dmodifiers);
 
 public:
 	ZModem(HardwareSerial &serial);

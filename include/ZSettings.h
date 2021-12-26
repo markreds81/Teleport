@@ -25,6 +25,7 @@ public:
     bool doEcho;
 	bool numericResponses;
 	bool suppressResponses;
+    bool longResponses;
 
     ZSettings();
     virtual ~ZSettings();
