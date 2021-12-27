@@ -2,16 +2,16 @@
 #define ZSTREAM_MODE_H
 
 #include "ZDataMode.h"
-#include <WiFiClient.h>
+#include "ZClient.h"
 
 class ZStreamMode : public ZDataMode
 {
 private:
-    WiFiClient *client;
+    ZClient *client;
 public:
     ZStreamMode(ZSerial &serial);
 
-    void switchTo(WiFiClient *aClient);
+    void switchTo(ZClient *aClient);
     bool tick();
 };
 

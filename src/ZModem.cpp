@@ -1,5 +1,6 @@
 #include "ZModem.h"
 #include "ZDebug.h"
+#include "ZClient.h"
 #include "ZSettings.h"
 #include <WiFi.h>
 #include <SPIFFS.h>
@@ -877,14 +878,25 @@ ZResult ZModem::execDial(unsigned long vval, uint8_t *vbuf, int vlen, bool isNum
 	}
 	else
 	{
-		DPRINTLN("Start a new connection");
-		WiFiClient *client = new WiFiClient();
-		if (client->connect("192.168.1.48", 49152))
+		char *colon = strstr((char *)vbuf,":");
+		int port=23;
+		if (colon != NULL)
 		{
-			DPRINTLN("connected");
+			*colon = '\0';
+			port = atoi((char *)(++colon));
+		}
+		DPRINTF("Connecting to %s:%d ", (char *)vbuf, port);
+		ZClient *client = new ZClient();
+		if (client->connect((char *)vbuf, port))
+		{
+			DPRINTLN("OK");
 			streamMode.switchTo(client);
 			dataMode = &streamMode;
-		}
+			return ZCONNECT;
+		}		
+		DPRINTLN("FAILED");
+		delete client;
+		return ZNOANSWER;
 	}
 	return ZOK;
 }
@@ -940,7 +952,7 @@ void ZModem::tick()
 	{
 		if (!dataMode->tick())
 		{
-			dataMode = nullptr;
+			dataMode = nullptr;	//switch back to command mode
 		}
 	}
 	else if (serialPort.available() > 0)

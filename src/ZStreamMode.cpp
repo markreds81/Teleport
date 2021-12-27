@@ -5,7 +5,7 @@ ZStreamMode::ZStreamMode(ZSerial &serial) : ZDataMode(serial)
 
 }
 
-void ZStreamMode::switchTo(WiFiClient *aClient)
+void ZStreamMode::switchTo(ZClient *aClient)
 {
     client = aClient;
 }
