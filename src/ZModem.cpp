@@ -5,7 +5,7 @@
 #include <WiFi.h>
 #include <SPIFFS.h>
 
-ZModem::ZModem(ZSerial &serial) : serialPort(serial), streamMode(serial)
+ZModem::ZModem(ZSerial &serial) : serialPort(serial), streamMode(&serial)
 {
 	dataMode = nullptr;
 	buffer[0] = '\0';
@@ -258,9 +258,68 @@ void ZModem::sendResponse(ZResult rc)
 		break;
 	case ZCONNECT:
 		DPRINTF("Response: %s\n", "connected");
+		sendConnectionNotice(999);
 		break;
 	default:
 		DPRINTF("Response: %d\n", rc);
+	}
+	serialPort.print(settings.EOLN);
+}
+
+void ZModem::sendConnectionNotice(int id)
+{
+	serialPort.print(settings.EOLN);
+	if (settings.numericResponses)
+	{
+		if (!settings.longResponses)
+		{
+			serialPort.print("1");
+		}
+		else if (settings.baudRate < 1200)
+		{
+			serialPort.print("1");
+		}
+		else if (settings.baudRate < 2400)
+		{
+			serialPort.print("5");
+		}
+		else if (settings.baudRate < 4800)
+		{
+			serialPort.print("10");
+		}
+		else if (settings.baudRate < 7200)
+		{
+			serialPort.print("11");
+		}
+		else if (settings.baudRate < 9600)
+		{
+			serialPort.print("24");
+		}
+		else if (settings.baudRate < 12000)
+		{
+			serialPort.print("12");
+		}
+		else if (settings.baudRate < 14400)
+		{
+			serialPort.print("25");
+		}
+		else if (settings.baudRate < 19200)
+		{
+			serialPort.print("13");
+		}
+		else
+		{
+			serialPort.print("28");
+		}
+	}
+	else
+	{
+		serialPort.print("CONNECT");
+		if (settings.longResponses)
+		{
+			serialPort.print(" ");
+			serialPort.print(id);
+		}
 	}
 	serialPort.print(settings.EOLN);
 }
@@ -464,7 +523,7 @@ ZResult ZModem::execCommand()
 				DPRINTLN("o");
 				break;
 			case 'c':
-				DPRINTLN("c");
+				rc = execConnect(vval, vbuf, vlen, isNumber, dmodifiers.c_str());
 				break;
 			case 'i':
 				rc = execInfo(vval, vbuf, vlen, isNumber);
@@ -890,6 +949,7 @@ ZResult ZModem::execDial(unsigned long vval, uint8_t *vbuf, int vlen, bool isNum
 		if (client->connect((char *)vbuf, port))
 		{
 			DPRINTLN("OK");
+			client->setNoDelay(true);
 			streamMode.switchTo(client);
 			dataMode = &streamMode;
 			return ZCONNECT;
@@ -898,6 +958,11 @@ ZResult ZModem::execDial(unsigned long vval, uint8_t *vbuf, int vlen, bool isNum
 		delete client;
 		return ZNOANSWER;
 	}
+	return ZOK;
+}
+
+ZResult ZModem::execConnect(int vval, uint8_t *vbuf, int vlen, bool isNumber, const char *dmodifiers)
+{
 	return ZOK;
 }
 
@@ -950,9 +1015,15 @@ void ZModem::tick()
 {
 	if (dataMode != nullptr)
 	{
-		if (!dataMode->tick())
+		switch (dataMode->tick())
 		{
+		case ZSUSPEND:
+		case ZFINISH:
+		case ZLOGOUT:
 			dataMode = nullptr;	//switch back to command mode
+			break;
+		default:
+			break;
 		}
 	}
 	else if (serialPort.available() > 0)

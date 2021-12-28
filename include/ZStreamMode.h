@@ -9,10 +9,10 @@ class ZStreamMode : public ZDataMode
 private:
     ZClient *client;
 public:
-    ZStreamMode(ZSerial &serial);
+    ZStreamMode(ZSerial *serial);
 
     void switchTo(ZClient *aClient);
-    bool tick();
+    ZModeResult tick();
 };
 
 #endif

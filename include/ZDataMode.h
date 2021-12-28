@@ -2,16 +2,17 @@
 #define ZDATA_MODE_H
 
 #include "ZSerial.h"
+#include "z/types.h"
 
 class ZDataMode
 {
 protected:
-    ZSerial &serialPort;
+    ZSerial *serial;
 public:
-    ZDataMode(ZSerial &serial);
+    ZDataMode(ZSerial *s);
     virtual ~ZDataMode();
     
-    virtual bool tick();
+    virtual ZModeResult tick();
 };
 
 #endif

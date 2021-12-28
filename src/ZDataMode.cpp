@@ -1,6 +1,6 @@
 #include "ZDataMode.h"
 
-ZDataMode::ZDataMode(ZSerial &serial) : serialPort(serial)
+ZDataMode::ZDataMode(ZSerial *s) : serial(s)
 {
 
 }
@@ -10,7 +10,7 @@ ZDataMode::~ZDataMode()
 
 }
 
-bool ZDataMode::tick()
+ZModeResult ZDataMode::tick()
 {
-    return false;
+    return ZFINISH;
 }

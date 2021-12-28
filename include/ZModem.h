@@ -4,6 +4,7 @@
 #include "z/config.h"
 #include "z/types.h"
 #include "ZSerial.h"
+#include "ZClient.h"
 #include "ZSettings.h"
 #include "ZDataMode.h"
 #include "ZStreamMode.h"
@@ -18,6 +19,7 @@ class ZModem
 private:
 	ZSerial &serialPort;
 	ZSettings settings;
+	ZClient *current;
 	ZDataMode *dataMode;
 	ZStreamMode streamMode;
 	uint8_t buffer[MAX_COMMAND_SIZE];
@@ -44,6 +46,7 @@ private:
 	void clearPlusProgress();
 	void showInitMessage();
 	void sendResponse(ZResult rc);
+	void sendConnectionNotice(int id);
 
 	ZResult execCommand();
 	ZResult execReset();
@@ -52,6 +55,7 @@ private:
 	ZResult execEOLN(int vval, uint8_t *vbuf, int vlen, bool isNumber);
 	ZResult execBaud(int vval, uint8_t *vbuf, int vlen);
 	ZResult execDial(unsigned long vval, uint8_t *vbuf, int vlen, bool isNumber, const char *dmodifiers);
+	ZResult execConnect(int vval, uint8_t *vbuf, int vlen, bool isNumber, const char *dmodifiers);
 
 public:
 	ZModem(ZSerial &serial);
