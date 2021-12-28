@@ -16,31 +16,26 @@ void ZStreamMode::tick()
         if (!available && escapeCount == 3 && (millis() - escapeMillis) > 1000)
         {
             modem->switchBackToCommandMode();
+            escapeCount = 0;
+            return;
         }
-        else
+        while (available > 0)
         {
-            while (available > 0 && modem->socketAvailableForWrite() > 0)
+            char c = modem->serialRead();
+            if (c == '+' && (escapeCount > 0 || (millis() - escapeMillis) > 1000))
             {
-                char c = modem->serialRead();
-                if (c != '+')
-                {
-                    escapeCount = 0;
-                    escapeMillis = millis();
-                }
-                else
-                {
-                    if (escapeCount == 0 && (millis() - escapeMillis) > 1000)
-                    {
-                        escapeCount++;
-                    }
-                    else if (escapeCount < 3 && (millis() - escapeMillis) <= 1000)
-                    {
-                        escapeMillis = millis();
-                    }
-                }
-                modem->socketWrite(c);
-                available = modem->serialAvailable();
+                escapeCount++;
             }
+            else if (c != '+')
+            {
+                escapeCount = 0;
+                escapeMillis = millis();
+            }
+            else if (escapeCount == 0)
+            {
+                modem->socketWrite(c);   
+            }
+            available = modem->serialAvailable();
         }
         while (modem->socketAvailable() > 0 && modem->serialAvailableForWrite() > 0)
         {

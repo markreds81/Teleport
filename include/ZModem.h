@@ -17,7 +17,7 @@ const char compile_date[] = __DATE__ " " __TIME__;
 class ZModem
 {
 private:
-	ZSerial &serial;
+	ZSerial *serial;
 	ZClient *socket;
 	ZSettings settings;
 	ZMode *mode;
@@ -59,7 +59,7 @@ private:
 	ZResult execConnect(int vval, uint8_t *vbuf, int vlen, bool isNumber, const char *dmodifiers);
 
 public:
-	ZModem(ZSerial &s);
+	ZModem(ZSerial *s);
 	virtual ~ZModem();
 
 	void switchBackToCommandMode();
@@ -75,22 +75,22 @@ public:
 
 	inline int serialAvailable()
 	{
-		return serial.available();
+		return serial->available();
 	}
 
 	inline int serialAvailableForWrite()
 	{
-		return serial.availableForWrite();
+		return serial->availableForWrite();
 	}
 
 	inline int serialRead()
 	{
-		return serial.read();
+		return serial->read();
 	}
 
 	inline size_t serialWrite(uint8_t c)
 	{
-		return serial.write(c);
+		return serial->write(c);
 	}
 
 	inline int socketAvailable()

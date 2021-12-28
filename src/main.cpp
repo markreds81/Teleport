@@ -7,7 +7,7 @@
 
 Button reset(PIN_FACTORY_RESET);
 ZSerial serial(UART_NUM_2);
-ZModem modem(serial);
+ZModem modem(&serial);
 
 void setup()
 {
