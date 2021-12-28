@@ -6,7 +6,7 @@
 #include "ZSerial.h"
 #include "ZClient.h"
 #include "ZSettings.h"
-#include "ZDataMode.h"
+#include "ZMode.h"
 #include "ZStreamMode.h"
 #include <Arduino.h>
 
@@ -17,10 +17,10 @@ const char compile_date[] = __DATE__ " " __TIME__;
 class ZModem
 {
 private:
-	ZSerial &serialPort;
+	ZSerial &serial;
+	ZClient *socket;
 	ZSettings settings;
-	ZClient *current;
-	ZDataMode *dataMode;
+	ZMode *mode;
 	ZStreamMode streamMode;
 	uint8_t buffer[MAX_COMMAND_SIZE];
 	size_t buflen;
@@ -40,6 +40,7 @@ private:
 	IPAddress *staticSN = nullptr;
 
 	char lc(char c);
+	void switchTo(ZMode *newMode);
 	void setStaticIPs(IPAddress *ip, IPAddress *dns, IPAddress *gateway, IPAddress *subnet);
 	bool connectWiFi(const char* ssid, const char* pswd, IPAddress *ip, IPAddress *dns, IPAddress *gateway, IPAddress *subnet);
 	bool readSerialStream();
@@ -58,13 +59,59 @@ private:
 	ZResult execConnect(int vval, uint8_t *vbuf, int vlen, bool isNumber, const char *dmodifiers);
 
 public:
-	ZModem(ZSerial &serial);
+	ZModem(ZSerial &s);
 	virtual ~ZModem();
 
+	void switchBackToCommandMode();
 	void factoryReset();
-
+	void disconnect();
 	void begin();
 	void tick();
+
+	inline bool connected()
+	{
+		return socket != nullptr && socket->connected();
+	}
+
+	inline int serialAvailable()
+	{
+		return serial.available();
+	}
+
+	inline int serialAvailableForWrite()
+	{
+		return serial.availableForWrite();
+	}
+
+	inline int serialRead()
+	{
+		return serial.read();
+	}
+
+	inline size_t serialWrite(uint8_t c)
+	{
+		return serial.write(c);
+	}
+
+	inline int socketAvailable()
+	{
+		return socket != nullptr ? socket->available() : 0;
+	}
+
+	inline int socketAvailableForWrite()
+	{
+		return socket != nullptr ? socket->availableForWrite() : 0;
+	}
+
+	inline int socketRead()
+	{
+		return socket != nullptr ? socket->read() : -1;
+	}
+
+	inline size_t socketWrite(uint8_t c)
+	{
+		return socket != nullptr ? socket->write(c) : 0;
+	}
 };
 
 #endif

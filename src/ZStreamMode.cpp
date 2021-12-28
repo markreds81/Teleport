@@ -1,48 +1,58 @@
 #include "ZStreamMode.h"
 #include "ZDebug.h"
+#include "ZModem.h"
 
-ZStreamMode::ZStreamMode(ZSerial *serial) : ZDataMode(serial)
+ZStreamMode::ZStreamMode(ZModem *m) : ZMode(m)
 {
-
+    escapeCount = 0;
+    escapeMillis = 0;
 }
 
-void ZStreamMode::switchTo(ZClient *aClient)
+void ZStreamMode::tick()
 {
-    client = aClient;
-}
-
-ZModeResult ZStreamMode::tick()
-{
-    if (client->connected())
+    if (modem->connected())
     {
-        while (serial->available() > 0 && client->availableForWrite() > 0)
+        int available = modem->serialAvailable();
+        if (!available && escapeCount == 3 && (millis() - escapeMillis) > 1000)
         {
-            char c = serial->read();
-
-            if (c == '+')
+            modem->switchBackToCommandMode();
+        }
+        else
+        {
+            while (available > 0 && modem->socketAvailableForWrite() > 0)
             {
-                client->flush();
-                client->stop();
-                delay(500);
-                delete client;
-                return ZSUSPEND;
+                char c = modem->serialRead();
+                if (c != '+')
+                {
+                    escapeCount = 0;
+                    escapeMillis = millis();
+                }
+                else
+                {
+                    if (escapeCount == 0 && (millis() - escapeMillis) > 1000)
+                    {
+                        escapeCount++;
+                    }
+                    else if (escapeCount < 3 && (millis() - escapeMillis) <= 1000)
+                    {
+                        escapeMillis = millis();
+                    }
+                }
+                modem->socketWrite(c);
+                available = modem->serialAvailable();
             }
-
-            client->write(c);
         }
-
-        while (client->available() > 0 && serial->availableForWrite() > 0)
+        while (modem->socketAvailable() > 0 && modem->serialAvailableForWrite() > 0)
         {
-            char c = client->read();
-            serial->write(c);
+            char c = modem->socketRead();
+            modem->serialWrite(c);
         }
-        
-        return ZCONTINUE;
-    }
-    
-    client->stop();
-    delay(500);
-    delete client;
 
-    return ZLOGOUT;
+        // return ZCONTINUE;
+    }
+    else
+    {
+        modem->disconnect();
+        modem->switchBackToCommandMode();
+    }
 }

@@ -30,12 +30,4 @@ enum ZResult
 	ZIGNORE_SPECIAL
 };
 
-enum ZModeResult
-{
-	ZCONTINUE,
-	ZSUSPEND,
-	ZFINISH,
-	ZLOGOUT
-};
-
 #endif

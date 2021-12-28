@@ -5,9 +5,9 @@
 #include <WiFi.h>
 #include <SPIFFS.h>
 
-ZModem::ZModem(ZSerial &serial) : serialPort(serial), streamMode(&serial)
+ZModem::ZModem(ZSerial &s) : serial(s), streamMode(this)
 {
-	dataMode = nullptr;
+	mode = nullptr;
 	buffer[0] = '\0';
 	buflen = 0;
 	BS = ASCII_BS;
@@ -22,6 +22,17 @@ ZModem::ZModem(ZSerial &serial) : serialPort(serial), streamMode(&serial)
 
 ZModem::~ZModem()
 {
+}
+
+void ZModem::switchTo(ZMode *newMode)
+{
+	mode = newMode;
+#if DEBUG
+	if (newMode == &streamMode)
+	{
+		DPRINTF("Switching to %s mode\n", "stream");
+	}
+#endif
 }
 
 char ZModem::lc(char c)
@@ -109,14 +120,14 @@ bool ZModem::connectWiFi(const char *ssid, const char *pswd, IPAddress *ip, IPAd
 bool ZModem::readSerialStream()
 {
 	bool crReceived = false;
-	while (serialPort.available() > 0 && !crReceived)
+	while (serial.available() > 0 && !crReceived)
 	{
-		uint8_t c = serialPort.read();
+		uint8_t c = serial.read();
 		if (c == '\n' || c == '\r')
 		{
 			if (settings.doEcho)
 			{
-				serialPort.write(c);
+				serial.write(c);
 			}
 			crReceived = true;
 			break;
@@ -153,7 +164,7 @@ bool ZModem::readSerialStream()
 			{
 				if (settings.doEcho)
 				{
-					serialPort.write(c);
+					serial.write(c);
 				}
 				if ((c == BS) || ((BS == 8) && ((c == ASCII_DC4) || (c == ASCII_DELETE))))
 				{
@@ -174,36 +185,36 @@ bool ZModem::readSerialStream()
 
 void ZModem::showInitMessage()
 {
-	serialPort.print(settings.EOLN);
-	serialPort.print("ZModem Firmware v");
-	serialPort.print(ZMODEM_VERSION);
-	serialPort.print(settings.EOLN);
+	serial.print(settings.EOLN);
+	serial.print("ZModem Firmware v");
+	serial.print(ZMODEM_VERSION);
+	serial.print(settings.EOLN);
 
-	serialPort.printf("sdk=%s chipid=%d cpu@%d", ESP.getSdkVersion(), ESP.getChipRevision(), ESP.getCpuFreqMHz());
-	serialPort.print(settings.EOLN);
+	serial.printf("sdk=%s chipid=%d cpu@%d", ESP.getSdkVersion(), ESP.getChipRevision(), ESP.getCpuFreqMHz());
+	serial.print(settings.EOLN);
 
-	serialPort.printf("totsize=%dk hsize=%dk fsize=%dk speed=%dm", (ESP.getFlashChipSize() / 1024), (ESP.getFreeHeap() / 1024), SPIFFS.totalBytes() / 1024, (ESP.getFlashChipSpeed() / 1000000));
-	serialPort.print(settings.EOLN);
+	serial.printf("totsize=%dk hsize=%dk fsize=%dk speed=%dm", (ESP.getFlashChipSize() / 1024), (ESP.getFreeHeap() / 1024), SPIFFS.totalBytes() / 1024, (ESP.getFlashChipSpeed() / 1000000));
+	serial.print(settings.EOLN);
 
 	if (settings.wifiSSID.length() > 0)
 	{
 		if (WiFi.status() == WL_CONNECTED)
 		{
-			serialPort.print(("CONNECTED TO " + settings.wifiSSID + " (" + WiFi.localIP().toString().c_str() + ")").c_str());
+			serial.print(("CONNECTED TO " + settings.wifiSSID + " (" + WiFi.localIP().toString().c_str() + ")").c_str());
 		}
 		else
 		{
-			serialPort.print(("ERROR ON " + settings.wifiSSID).c_str());
+			serial.print(("ERROR ON " + settings.wifiSSID).c_str());
 		}
 	}
 	else
 	{
-		serialPort.print("INITIALIZED");
+		serial.print("INITIALIZED");
 	}
-	serialPort.print(settings.EOLN);
-	serialPort.print("READY.");
-	serialPort.print(settings.EOLN);
-	serialPort.flush();
+	serial.print(settings.EOLN);
+	serial.print("READY.");
+	serial.print(settings.EOLN);
+	serial.flush();
 }
 
 void ZModem::clearPlusProgress()
@@ -220,40 +231,40 @@ void ZModem::clearPlusProgress()
 
 void ZModem::sendResponse(ZResult rc)
 {
-	serialPort.print(settings.EOLN);
+	serial.print(settings.EOLN);
 	switch (rc)
 	{
 	case ZOK:
 		DPRINTF("Response: %s\n", "OK");
 		if (settings.numericResponses)
 		{
-			serialPort.print("0");
+			serial.print("0");
 		}
 		else
 		{
-			serialPort.print("OK");
+			serial.print("OK");
 		}
 		break;
 	case ZERROR:
 		DPRINTF("Response: %s\n", "ERROR");
 		if (settings.numericResponses)
 		{
-			serialPort.print("4");
+			serial.print("4");
 		}
 		else
 		{
-			serialPort.print("ERROR");
+			serial.print("ERROR");
 		}
 		break;
 	case ZNOANSWER:
 		DPRINTF("Response: %s\n", "NOANSWER");
 		if (settings.numericResponses)
 		{
-			serialPort.print("8");
+			serial.print("8");
 		}
 		else
 		{
-			serialPort.print("NO ANSWER");
+			serial.print("NO ANSWER");
 		}
 		break;
 	case ZCONNECT:
@@ -263,65 +274,65 @@ void ZModem::sendResponse(ZResult rc)
 	default:
 		DPRINTF("Response: %d\n", rc);
 	}
-	serialPort.print(settings.EOLN);
+	serial.print(settings.EOLN);
 }
 
 void ZModem::sendConnectionNotice(int id)
 {
-	serialPort.print(settings.EOLN);
+	serial.print(settings.EOLN);
 	if (settings.numericResponses)
 	{
 		if (!settings.longResponses)
 		{
-			serialPort.print("1");
+			serial.print("1");
 		}
 		else if (settings.baudRate < 1200)
 		{
-			serialPort.print("1");
+			serial.print("1");
 		}
 		else if (settings.baudRate < 2400)
 		{
-			serialPort.print("5");
+			serial.print("5");
 		}
 		else if (settings.baudRate < 4800)
 		{
-			serialPort.print("10");
+			serial.print("10");
 		}
 		else if (settings.baudRate < 7200)
 		{
-			serialPort.print("11");
+			serial.print("11");
 		}
 		else if (settings.baudRate < 9600)
 		{
-			serialPort.print("24");
+			serial.print("24");
 		}
 		else if (settings.baudRate < 12000)
 		{
-			serialPort.print("12");
+			serial.print("12");
 		}
 		else if (settings.baudRate < 14400)
 		{
-			serialPort.print("25");
+			serial.print("25");
 		}
 		else if (settings.baudRate < 19200)
 		{
-			serialPort.print("13");
+			serial.print("13");
 		}
 		else
 		{
-			serialPort.print("28");
+			serial.print("28");
 		}
 	}
 	else
 	{
-		serialPort.print("CONNECT");
+		serial.print("CONNECT");
 		if (settings.longResponses)
 		{
-			serialPort.print(" ");
-			serialPort.print(id);
+			serial.print(" ");
+			serial.print(id);
 		}
 	}
-	serialPort.print(settings.EOLN);
+	serial.print(settings.EOLN);
 }
 
 ZResult ZModem::execCommand()
@@ -701,67 +712,67 @@ ZResult ZModem::execInfo(int vval, uint8_t *vbuf, int vlen, bool isNumber)
 		break;
 	case 1:
 	case 5:
-		serialPort.print(settings.EOLN);
-		serialPort.print("AT");
-		serialPort.printf("%s%d", "B", settings.baudRate);
-		serialPort.printf("%s%d", "E", settings.doEcho ? 1 : 0);
-		serialPort.printf("%s%d", "Q", settings.suppressResponses ? 1 : 0);
+		serial.print(settings.EOLN);
+		serial.print("AT");
+		serial.printf("%s%d", "B", settings.baudRate);
+		serial.printf("%s%d", "E", settings.doEcho ? 1 : 0);
+		serial.printf("%s%d", "Q", settings.suppressResponses ? 1 : 0);
 		if (vval == 5)
 		{
-			serialPort.printf("%s%d", "V", settings.numericResponses ? 1 : 0);
-			serialPort.printf("%s%d", "X", settings.longResponses ? 1 : 0);
+			serial.printf("%s%d", "V", settings.numericResponses ? 1 : 0);
+			serial.printf("%s%d", "X", settings.longResponses ? 1 : 0);
 		}
 		switch (settings.flowControlType)
 		{
 		case FCT_RTSCTS:
-			serialPort.printf("%s%d", "F", 0);
+			serial.printf("%s%d", "F", 0);
 			break;
 		case FCT_NORMAL:
-			serialPort.printf("%s%d", "F", 1);
+			serial.printf("%s%d", "F", 1);
 			break;
 		case FCT_AUTOOFF:
-			serialPort.printf("%s%d", "F", 2);
+			serial.printf("%s%d", "F", 2);
 			break;
 		case FCT_MANUAL:
-			serialPort.printf("%s%d", "F", 3);
+			serial.printf("%s%d", "F", 3);
 			break;
 		case FCT_DISABLED:
-			serialPort.printf("%s%d", "F", 4);
+			serial.printf("%s%d", "F", 4);
 			break;
 		case FCT_INVALID:
 			break;
 		}
 		if (settings.EOLN == CR)
-			serialPort.printf("%s%d", "R", 0);
+			serial.printf("%s%d", "R", 0);
 		else if (settings.EOLN == CRLF)
-			serialPort.printf("%s%d", "R", 1);
+			serial.printf("%s%d", "R", 1);
 		else if (settings.EOLN == LFCR)
-			serialPort.printf("%s%d", "R", 2);
+			serial.printf("%s%d", "R", 2);
 		else if (settings.EOLN == LF)
-			serialPort.printf("%s%d", "R", 3);
+			serial.printf("%s%d", "R", 3);
 		break;
 	case 2:
-		serialPort.print(settings.EOLN);
-		serialPort.print(WiFi.localIP().toString());
+		serial.print(settings.EOLN);
+		serial.print(WiFi.localIP().toString());
 		break;
 	case 3:
-		serialPort.print(settings.EOLN);
-		serialPort.print(settings.wifiSSID);
+		serial.print(settings.EOLN);
+		serial.print(settings.wifiSSID);
 		break;
 	case 4:
-		serialPort.print(settings.EOLN);
-		serialPort.print(ZMODEM_VERSION);
+		serial.print(settings.EOLN);
+		serial.print(ZMODEM_VERSION);
 		break;
 	case 6:
-		serialPort.print(settings.EOLN);
-		serialPort.print(WiFi.macAddress());
+		serial.print(settings.EOLN);
+		serial.print(WiFi.macAddress());
 		break;
 	case 8:
-		serialPort.print(settings.EOLN);
-		serialPort.print(compile_date);
+		serial.print(settings.EOLN);
+		serial.print(compile_date);
 		break;
 	default:
-		serialPort.print(settings.EOLN);
+		serial.print(settings.EOLN);
 		return ZERROR;
 	}
 
@@ -777,15 +788,15 @@ ZResult ZModem::execWiFi(int vval, uint8_t *vbuf, int vlen, bool isNumber, const
 		{
 			n = vval;
 		}
-		serialPort.print(settings.EOLN);
+		serial.print(settings.EOLN);
 		for (int i = 0; i < n; ++i)
 		{
-			serialPort.print(WiFi.SSID(i));
-			serialPort.print(" (");
-			serialPort.print(WiFi.RSSI(i));
-			serialPort.print(")");
-			serialPort.print(WiFi.encryptionType(i) == ENC_TYPE_NONE ? " " : "*");
-			serialPort.print(settings.EOLN);
+			serial.print(WiFi.SSID(i));
+			serial.print(" (");
+			serial.print(WiFi.RSSI(i));
+			serial.print(")");
+			serial.print(WiFi.encryptionType(i) == ENC_TYPE_NONE ? " " : "*");
+			serial.print(settings.EOLN);
 			delay(10);
 		}
 	}
@@ -914,31 +925,34 @@ ZResult ZModem::execEOLN(int vval, uint8_t *vbuf, int vlen, bool isNumber)
 ZResult ZModem::execBaud(int vval, uint8_t *vbuf, int vlen)
 {
 	DPRINTF("change baud rate to: %d\n", vval);
-	serialPort.flush();
+	serial.flush();
 	delay(500);
-	serialPort.end();
+	serial.end();
 
 	settings.baudRate = vval;
-	serialPort.begin(vval);
+	serial.begin(vval);
 
 	return ZOK;
 }
 
 ZResult ZModem::execDial(unsigned long vval, uint8_t *vbuf, int vlen, bool isNumber, const char *dmodifiers)
 {
-	DPRINTLN(vval);
 	if (vlen == 0)
 	{
-		DPRINTLN("streamMode.switchTo");
+		if (socket == nullptr || !socket->connected())
+		{
+			return ZERROR;
+		}
+		switchTo(&streamMode);			
 	}
 	else if (vval >= 0 && isNumber)
 	{
-		DPRINTLN("Phonebook entry");
+		DPRINTF("Phonebook entry #%lu\n", vval);
 	}
 	else
 	{
-		char *colon = strstr((char *)vbuf,":");
-		int port=23;
+		char *colon = strstr((char *)vbuf, ":");
+		int port = 23;
 		if (colon != NULL)
 		{
 			*colon = '\0';
@@ -950,10 +964,10 @@ ZResult ZModem::execDial(unsigned long vval, uint8_t *vbuf, int vlen, bool isNum
 		{
 			DPRINTLN("OK");
 			client->setNoDelay(true);
-			streamMode.switchTo(client);
-			dataMode = &streamMode;
+			socket = client;
+			switchTo(&streamMode);
 			return ZCONNECT;
-		}		
+		}
 		DPRINTLN("FAILED");
 		delete client;
 		return ZNOANSWER;
@@ -966,8 +980,26 @@ ZResult ZModem::execConnect(int vval, uint8_t *vbuf, int vlen, bool isNumber, co
 	return ZOK;
 }
 
+void ZModem::switchBackToCommandMode()
+{
+	DPRINTLN("Switching back to command mode");
+	mode = nullptr;
+}
+
 void ZModem::factoryReset()
 {
+}
+
+void ZModem::disconnect()
+{
+	if (socket != nullptr)
+	{
+		socket->flush();
+		socket->stop();
+		delay(500);
+		delete socket;
+		socket = nullptr;
+	}
 }
 
 void ZModem::begin()
@@ -999,8 +1031,8 @@ void ZModem::begin()
 		settings.load();
 	}
 
-	serialPort.begin(settings.baudRate, DEFAULT_SERIAL_CONFIG);
-	serialPort.setRxBufferSize(MAX_COMMAND_SIZE);
+	serial.begin(settings.baudRate, DEFAULT_SERIAL_CONFIG);
+	serial.setRxBufferSize(MAX_COMMAND_SIZE);
 	DPRINTF("COM port open at %d bit/s\n", settings.baudRate);
 
 	if (settings.wifiSSID.length() > 0)
@@ -1013,20 +1045,11 @@ void ZModem::begin()
 
 void ZModem::tick()
 {
-	if (dataMode != nullptr)
+	if (mode != nullptr)
 	{
-		switch (dataMode->tick())
-		{
-		case ZSUSPEND:
-		case ZFINISH:
-		case ZLOGOUT:
-			dataMode = nullptr;	//switch back to command mode
-			break;
-		default:
-			break;
-		}
+		mode->tick();
 	}
-	else if (serialPort.available() > 0)
+	else if (serial.available() > 0)
 	{
 		bool crReceived = readSerialStream();
 		clearPlusProgress();

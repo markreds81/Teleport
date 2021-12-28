@@ -1,18 +1,18 @@
 #ifndef ZSTREAM_MODE_H
 #define ZSTREAM_MODE_H
 
-#include "ZDataMode.h"
-#include "ZClient.h"
+#include "ZMode.h"
 
-class ZStreamMode : public ZDataMode
+class ZStreamMode : public ZMode
 {
 private:
-    ZClient *client;
-public:
-    ZStreamMode(ZSerial *serial);
+    short escapeCount;
+    unsigned long escapeMillis;
 
-    void switchTo(ZClient *aClient);
-    ZModeResult tick();
+public:
+    ZStreamMode(ZModem *m);
+
+    void tick();
 };
 
 #endif
