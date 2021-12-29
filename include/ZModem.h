@@ -38,7 +38,7 @@ private:
 	IPAddress *staticDNS = nullptr;
 	IPAddress *staticGW = nullptr;
 	IPAddress *staticSN = nullptr;
-
+	
 	char lc(char c);
 	void switchTo(ZMode *newMode);
 	void setStaticIPs(IPAddress *ip, IPAddress *dns, IPAddress *gateway, IPAddress *subnet);
@@ -63,6 +63,8 @@ public:
 	virtual ~ZModem();
 
 	void switchBackToCommandMode();
+	//bool escapeSequence(char c);
+	//bool escapeComplete();
 	void factoryReset();
 	void disconnect();
 	void begin();
@@ -111,6 +113,11 @@ public:
 	inline size_t socketWrite(uint8_t c)
 	{
 		return socket != nullptr ? socket->write(c) : 0;
+	}
+
+	inline size_t socketWrite(const uint8_t *buf, size_t size)
+	{
+		return socket != nullptr ? socket->write(buf, size) : 0;
 	}
 };
 

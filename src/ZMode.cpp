@@ -14,3 +14,8 @@ void ZMode::tick()
 {
     // NOP
 }
+
+void ZMode::serialIncoming()
+{
+    // NOP
+}

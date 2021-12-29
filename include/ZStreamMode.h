@@ -5,13 +5,10 @@
 
 class ZStreamMode : public ZMode
 {
-private:
-    short escapeCount;
-    unsigned long escapeMillis;
-
 public:
     ZStreamMode(ZModem *m);
 
+    void serialIncoming();
     void tick();
 };
 
