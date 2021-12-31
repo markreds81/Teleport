@@ -8,7 +8,6 @@ class ZStreamMode : public ZMode
 public:
     ZStreamMode(ZModem *m);
 
-    void serialIncoming();
     void tick();
 };
 

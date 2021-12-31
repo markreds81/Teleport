@@ -95,6 +95,11 @@ public:
 		return serial->write(c);
 	}
 
+	inline size_t serialWrite(const uint8_t *buf, size_t size)
+	{
+		return serial->write(buf, size);
+	}
+
 	inline int socketAvailable()
 	{
 		return socket != nullptr ? socket->available() : 0;

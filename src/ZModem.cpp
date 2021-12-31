@@ -1047,10 +1047,6 @@ void ZModem::tick()
 {
 	if (mode != nullptr)
 	{
-		if (serial->available())
-		{
-			mode->serialIncoming();
-		}
 		mode->tick();
 	}
 	else if (serial->available() > 0)

@@ -9,6 +9,9 @@
 
 #define ENC_TYPE_NONE WIFI_AUTH_OPEN
 
+#include "z/config.h"
+#include <stdint.h>
+
 enum FlowControlType
 {
 	FCT_RTSCTS = 0,
@@ -28,6 +31,13 @@ enum ZResult
 	ZNOANSWER,
 	ZIGNORE,
 	ZIGNORE_SPECIAL
+};
+
+struct ZEscape {
+	unsigned long gt1;
+	unsigned long gt2;
+	uint8_t buf[ESCAPE_BUF_LEN];
+	uint8_t len;
 };
 
 #endif

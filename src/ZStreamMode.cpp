@@ -7,72 +7,43 @@ ZStreamMode::ZStreamMode(ZModem *m) : ZMode(m)
     // NOP
 }
 
-static bool isPETSCII() { return false; }
-
-void ZStreamMode::serialIncoming()
-{
-    int available = modem->serialAvailable();
-    if (available == 0)
-    {
-        return;
-    }
-
-    size_t i = 0;
-    while (--available)
-    {
-        uint8_t c = modem->serialRead();
-        if ((c == 27 || i > 0) && !isPETSCII())
-        {
-            escapeBuffer[i++] = c;
-            if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (i >= ZMODE_ESCAPE_MAX_LEN) || (i == 2 && c != '['))
-            {
-                break;
-            }
-            if (available == 0)
-            {
-                delay(5);
-                available = modem->serialAvailable();
-            }
-        }
-        if (c == '+' && (escapeCount > 0 || (millis() - escapeTime) > 1000))
-        {
-            DPRINTLN(escapeCount++);
-        }
-        else if (c != '+')
-        {
-            escapeCount = 0;
-            escapeTime = millis();
-            DPRINTLN(escapeCount);
-        }
-        if (i == 0)
-        {
-            modem->socketWrite(c);
-        }
-    }
-    if (i > 0)
-    {
-        modem->socketWrite(escapeBuffer, i);
-    }
-    expireTime = (escapeCount == 3) ? millis() + 800 : 0;
-}
-
 void ZStreamMode::tick()
 {
     if (modem->connected())
     {
-        while (modem->socketAvailable() > 0 && modem->serialAvailableForWrite() > 0)
+        while (modem->serialAvailable() > 0)
+        {
+            char c = modem->serialRead();
+            if (c != '+' || (millis() - esc.gt1) < 100 || esc.len >= sizeof(esc.buf))
+            {
+                if (esc.len)
+                {
+                    modem->socketWrite(esc.buf, esc.len);
+                    esc.len = 0;
+                    esc.gt2 = 0;
+                }
+                modem->socketWrite(c);
+                esc.gt1 = millis();
+            }
+            else
+            {
+                esc.buf[esc.len++] = c;
+                if (esc.len >= 3)
+                {
+                    esc.gt2 = millis();
+                }
+            }
+        }
+        while (modem->socketAvailable() > 0)
         {
             char c = modem->socketRead();
             modem->serialWrite(c);
         }
-        if (expireTime > 0 && (millis() > expireTime))
+        if (esc.gt2 && (millis() - esc.gt2) > 1000)
         {
-            expireTime = 0;
-            if (escapeCount == 3)
-            {
-                escapeCount = 0;
-                modem->switchBackToCommandMode();
-            }
+            esc.gt2 = 0;
+            esc.len = 0;
+            modem->switchBackToCommandMode();
         }
     }
     else
