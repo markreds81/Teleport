@@ -24,13 +24,24 @@ enum FlowControlType
 
 enum ZResult
 {
-	ZOK,
-	ZERROR,
+	ZOK = 0,
 	ZCONNECT,
+	ZRING,
 	ZNOCARRIER,
+	ZERROR,
+	ZNODIALTONE,
+	ZBUSY,
 	ZNOANSWER,
 	ZIGNORE,
 	ZIGNORE_SPECIAL
+};
+
+enum ZMode
+{
+	ZCOMMAND_MODE,
+	ZSTREAM_MODE,
+	ZCONFIG_MODE,
+	ZPRINT_MODE
 };
 
 struct ZEscape {

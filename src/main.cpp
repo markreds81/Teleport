@@ -1,9 +1,9 @@
 #include "ZSerial.h"
 #include "ZModem.h"
 #include "ZDebug.h"
-#include "Button.h"
 #include "driver/uart.h"
 #include <Arduino.h>
+#include <Button.h>
 
 Button reset(PIN_FACTORY_RESET);
 ZSerial serial(UART_NUM_2);

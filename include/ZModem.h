@@ -6,9 +6,8 @@
 #include "ZSerial.h"
 #include "ZClient.h"
 #include "ZSettings.h"
-#include "ZMode.h"
-#include "ZStreamMode.h"
 #include <Arduino.h>
+#include <LinkedList.h>
 
 #define MAX_COMMAND_SIZE 256
 
@@ -17,19 +16,23 @@ const char compile_date[] = __DATE__ " " __TIME__;
 class ZModem
 {
 private:
+	static const char *const RESULT_CODES_V0[];
+	static const char *const RESULT_CODES_V1[];
+
+	ZMode mode;
+	ZEscape esc;
 	ZSerial *serial;
 	ZClient *socket;
 	ZSettings settings;
-	ZMode *mode;
-	ZStreamMode streamMode;
+	LinkedList<ZClient *> clients;
 	uint8_t buffer[MAX_COMMAND_SIZE];
 	size_t buflen;
 	unsigned long lastNonPlusTimeMs = 0;
 	unsigned long currentExpiresTimeMs = 0;
 	char CRLF[4];
-    char LFCR[4];
-    char LF[2];
-    char CR[2];
+	char LFCR[4];
+	char LF[2];
+	char CR[2];
 	char BS;
 	char EC;
 	char ECS[32];
@@ -38,11 +41,10 @@ private:
 	IPAddress *staticDNS = nullptr;
 	IPAddress *staticGW = nullptr;
 	IPAddress *staticSN = nullptr;
-	
+
 	char lc(char c);
-	void switchTo(ZMode *newMode);
 	void setStaticIPs(IPAddress *ip, IPAddress *dns, IPAddress *gateway, IPAddress *subnet);
-	bool connectWiFi(const char* ssid, const char* pswd, IPAddress *ip, IPAddress *dns, IPAddress *gateway, IPAddress *subnet);
+	bool connectWiFi(const char *ssid, const char *pswd, IPAddress *ip, IPAddress *dns, IPAddress *gateway, IPAddress *subnet);
 	bool readSerialStream();
 	void clearPlusProgress();
 	void showInitMessage();
@@ -57,14 +59,18 @@ private:
 	ZResult execBaud(int vval, uint8_t *vbuf, int vlen);
 	ZResult execDial(unsigned long vval, uint8_t *vbuf, int vlen, bool isNumber, const char *dmodifiers);
 	ZResult execConnect(int vval, uint8_t *vbuf, int vlen, bool isNumber, const char *dmodifiers);
+	ZResult execHangup(int vval, uint8_t *vbuf, int vlen, bool isNumber);
+
+	void switchTo(ZMode newMode, ZResult rc = ZIGNORE);
+	void commandModeHandler();
+	void configModeHandler();
+	void streamModeHandler();
+	void printModeHandler();
 
 public:
 	ZModem(ZSerial *s);
 	virtual ~ZModem();
 
-	void switchBackToCommandMode();
-	//bool escapeSequence(char c);
-	//bool escapeComplete();
 	void factoryReset();
 	void disconnect();
 	void begin();

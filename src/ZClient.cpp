@@ -1,13 +1,15 @@
 #include "ZClient.h"
 
-int ZClient::nextClientId = 0;
+int ZClient::nextClientId = 1;
 
 ZClient::ZClient() : WiFiClient()
 {
     m_id = nextClientId++;
+    m_answered = false;
 }
 
-int ZClient::id()
+int ZClient::connect(const char *host, uint16_t port)
 {
-    return m_id;
+    strncpy(m_host, host, sizeof(m_host));
+    return Base::connect(host, port);
 }
