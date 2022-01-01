@@ -5,9 +5,23 @@
 #include <WiFi.h>
 #include <SPIFFS.h>
 
-ZModem::ZModem(ZSerial *s) : serial(s), streamMode(this)
+const char *const ZModem::RESULT_CODES_V0[] = {
+	"0", "1", "2", "3", "4", "6", "7", "8"};
+
+const char *const ZModem::RESULT_CODES_V1[] = {
+	"OK",
+	"CONNECT",
+	"RING",
+	"NO CARRIER",
+	"ERROR",
+	"NO DIALTONE",
+	"BUSY",
+	"NO ANSWER"
+};
+
+ZModem::ZModem(ZSerial *s) : serial(s)
 {
-	mode = nullptr;
+	mode = ZCOMMAND_MODE;
 	buffer[0] = '\0';
 	buflen = 0;
 	BS = ASCII_BS;
@@ -18,21 +32,11 @@ ZModem::ZModem(ZSerial *s) : serial(s), streamMode(this)
 	strcpy(LF, "\n");
 	strcpy(CR, "\r");
 	memset(ECS, EC, 3);
+	memset(&esc, 0, sizeof(esc));
 }
 
 ZModem::~ZModem()
 {
-}
-
-void ZModem::switchTo(ZMode *newMode)
-{
-	mode = newMode;
-#if DEBUG
-	if (newMode == &streamMode)
-	{
-		DPRINTF("Switching to %s mode\n", "stream");
-	}
-#endif
 }
 
 char ZModem::lc(char c)
@@ -231,50 +235,17 @@ void ZModem::clearPlusProgress()
 
 void ZModem::sendResponse(ZResult rc)
 {
-	serial->print(settings.EOLN);
-	switch (rc)
+	if (rc < ZIGNORE)
 	{
-	case ZOK:
-		DPRINTF("Response: %s\n", "OK");
-		if (settings.numericResponses)
-		{
-			serial->print("0");
-		}
-		else
-		{
-			serial->print("OK");
-		}
-		break;
-	case ZERROR:
-		DPRINTF("Response: %s\n", "ERROR");
-		if (settings.numericResponses)
-		{
-			serial->print("4");
-		}
-		else
-		{
-			serial->print("ERROR");
-		}
-		break;
-	case ZNOANSWER:
-		DPRINTF("Response: %s\n", "NOANSWER");
-		if (settings.numericResponses)
-		{
-			serial->print("8");
-		}
-		else
-		{
-			serial->print("NO ANSWER");
-		}
-		break;
-	case ZCONNECT:
-		DPRINTF("Response: %s\n", "connected");
-		sendConnectionNotice(999);
-		break;
-	default:
+		DPRINTF("Response: %s\n", RESULT_CODES_V1[rc]);
+		serial->print(settings.EOLN);
+		serial->print(settings.numericResponses ? RESULT_CODES_V0[rc] : RESULT_CODES_V1[rc]);
+		serial->print(settings.EOLN);
+	}
+	else
+	{
 		DPRINTF("Response: %d\n", rc);
 	}
-	serial->print(settings.EOLN);
 }
 
 void ZModem::sendConnectionNotice(int id)
@@ -522,7 +493,7 @@ ZResult ZModem::execCommand()
 				DPRINTLN("t");
 				break;
 			case 'h':
-				DPRINTLN("h");
+				rc = execHangup(vval, vbuf, vlen, isNumber);
 				break;
 			case 'd':
 				rc = execDial(vval, vbuf, vlen, isNumber, dmodifiers.c_str());
@@ -531,7 +502,22 @@ ZResult ZModem::execCommand()
 				DPRINTLN("p");
 				break;
 			case 'o':
-				DPRINTLN("o");
+				if (vlen == 0 || vval == 0)
+				{
+					if (socket == nullptr || !socket->connected())
+					{
+						rc = ZERROR;
+					}
+					else
+					{
+						switchTo(ZSTREAM_MODE);
+						rc = ZOK;
+					}
+				}
+				else
+				{
+					rc = isNumber ? execDial(vval, vbuf, vlen, isNumber, "") : ZERROR;
+				}
 				break;
 			case 'c':
 				rc = execConnect(vval, vbuf, vlen, isNumber, dmodifiers.c_str());
@@ -771,6 +757,25 @@ ZResult ZModem::execInfo(int vval, uint8_t *vbuf, int vlen, bool isNumber)
 		serial->print(settings.EOLN);
 		serial->print(compile_date);
 		break;
+	case 9:
+		serial->print(settings.EOLN);
+		serial->print(settings.wifiSSID);
+		if (staticIP != nullptr)
+		{
+			serial->print(settings.EOLN);
+			serial->print(staticIP->toString());
+			serial->print(settings.EOLN);
+			serial->print(staticSN->toString());
+			serial->print(settings.EOLN);
+			serial->print(staticGW->toString());
+			serial->print(settings.EOLN);
+			serial->print(staticDNS->toString());
+		}
+		break;
+	case 11:
+		serial->print(settings.EOLN);
+		serial->print(ESP.getFreeHeap());
+		break;
 	default:
 		serial->print(settings.EOLN);
 		return ZERROR;
@@ -931,6 +936,7 @@ ZResult ZModem::execBaud(int vval, uint8_t *vbuf, int vlen)
 
 	settings.baudRate = vval;
 	serial->begin(vval);
+	digitalWrite(PIN_LED_HS, vval >= DEFAULT_HS_RATE ? HIGH : LOW);
 
 	return ZOK;
 }
@@ -943,7 +949,7 @@ ZResult ZModem::execDial(unsigned long vval, uint8_t *vbuf, int vlen, bool isNum
 		{
 			return ZERROR;
 		}
-		switchTo(&streamMode);			
+		switchTo(ZSTREAM_MODE);
 	}
 	else if (vval >= 0 && isNumber)
 	{
@@ -965,7 +971,8 @@ ZResult ZModem::execDial(unsigned long vval, uint8_t *vbuf, int vlen, bool isNum
 			DPRINTLN("OK");
 			client->setNoDelay(true);
 			socket = client;
-			switchTo(&streamMode);
+			clients.add(client);
+			switchTo(ZSTREAM_MODE);
 			return ZCONNECT;
 		}
 		DPRINTLN("FAILED");
@@ -977,17 +984,257 @@ ZResult ZModem::execDial(unsigned long vval, uint8_t *vbuf, int vlen, bool isNum
 
 ZResult ZModem::execConnect(int vval, uint8_t *vbuf, int vlen, bool isNumber, const char *dmodifiers)
 {
+	if (vlen == 0)
+	{
+		// ATC : Shows information about the current network connection in the format
+		// [CONNECTION STATE] [CONNECTION ID] [CONNECTED TO HOST]:[CONNECTED TO PORT]
+		if (strlen(dmodifiers) > 0)
+		{
+			return ZERROR;
+		}
+		if (socket == nullptr)
+		{
+			return ZERROR;
+		}
+		if (socket->connected())
+		{
+			serial->print(settings.EOLN);
+			serial->printf("%s %d %s:%d", "CONNECTED", socket->id(), socket->host(), socket->port());
+		}
+		else if (socket->answered())
+		{
+			serial->print(settings.EOLN);
+			serial->printf("%s %d %s:%d", "NO CARRIER", socket->id(), socket->host(), socket->port());
+		}
+	}
+	else if (isNumber)
+	{
+		if (strlen(dmodifiers) > 0)
+		{
+			return ZERROR;
+		}
+		// ATC0 Lists information about all of the network connections in the format
+		// [CONNECTION STATE] [CONNECTION ID] [CONNECTED TO HOST]:[CONNECTED TO PORT]
+		// including any Server (ATA) listeners.
+		if (vval == 0)
+		{		
+			for (int i = 0; i < clients.size(); i++)
+			{
+				ZClient *c = clients.get(i);
+				if (c->connected())
+				{
+					serial->print(settings.EOLN);
+					serial->printf("%s %d %s:%d", "CONNECTED", c->id(), c->host(), c->port());
+				}
+				else if (socket->answered())
+				{
+					serial->print(settings.EOLN);
+					serial->printf("%s %d %s:%d", "NO CARRIER", c->id(), c->host(), c->port());
+				}
+			}
+			return ZOK;
+		}
+		else
+		{
+			// ATCn (n > 0) changes the current connection to the one with the given ID.
+			// If no connection exists with the given id, ERROR is returned.
+			for (int i = 0; i < clients.size(); i++)
+			{
+				ZClient *c = clients.get(i);
+				if (c->id() == vval)
+				{
+					socket = c;
+					return ZOK;
+				}
+			}
+		}
+	}
+	else
+	{
+		// ATC"[HOSTNAME]:[PORT]" creates a new connection to the given host and port,
+		// assigning a new id if the connection is successful, and making this connection
+		// the new current connection.  The quotes and colon are required.
+		char *colon = strstr((char *)vbuf, ":");
+		int port = 23;
+		if (colon != NULL)
+		{
+			*colon = '\0';
+			port = atoi((char *)(++colon));
+		}
+		DPRINTF("Connecting to %s:%d ", (char *)vbuf, port);
+		ZClient *c = new ZClient();
+		if (c->connect((char *)vbuf, port))
+		{
+			DPRINTLN("OK");
+			c->setNoDelay(true);
+			clients.add(c);
+			socket = c;
+			return ZCONNECT;
+		}
+		DPRINTLN("FAILED");
+		delete c;
+		return ZNOANSWER;
+	}
 	return ZOK;
 }
 
-void ZModem::switchBackToCommandMode()
+ZResult ZModem::execHangup(int vval, uint8_t *vbuf, int vlen, bool isNumber)
 {
-	DPRINTLN("Switching back to command mode");
-	mode = nullptr;
+	if (vlen == 0)
+	{
+		for (int i = 0; i < clients.size(); i++)
+		{
+			ZClient *c = clients.get(i);
+			c->stop();
+			delete c;
+		}
+		clients.clear();
+		socket = nullptr;
+		return ZOK;
+	}
+	if (isNumber)
+	{
+		if (vval == 0 && socket != nullptr)
+		{
+			DPRINTLN("Hangup current");
+			socket->stop();
+			for (int i = 0; i < clients.size(); i++)
+			{
+				if (clients.get(i) == socket)
+				{
+					DPRINTLN("found!");
+					clients.remove(i);
+					break;
+				}
+			}
+			delete socket;
+			socket = nullptr;
+			return ZOK;
+		}		
+		DPRINTF("Hangup: %d\n", vval);
+		for (int i = 0; i < clients.size(); i++)
+		{
+			ZClient *c = clients.get(i);
+			if (c->id() == vval)
+			{
+				clients.remove(i);
+				c->stop();
+				if (c == socket)
+				{
+					socket = nullptr;
+				}
+				delete c;
+				return ZOK;
+			}
+		}
+	}
+	return ZERROR;
+}
+
+void ZModem::switchTo(ZMode newMode, ZResult rc)
+{
+	switch (newMode)
+	{
+	case ZCOMMAND_MODE:
+		DPRINTF("Switch to %s mode\n", "COMMAND");
+		break;
+	case ZCONFIG_MODE:
+		DPRINTF("Switch to %s mode\n", "CONFIG");
+		break;
+	case ZSTREAM_MODE:
+		DPRINTF("Switch to %s mode\n", "STREAM");
+		break;
+	case ZPRINT_MODE:
+		DPRINTF("Switch to %s mode\n", "PRINT");
+		break;
+	}
+
+	if (rc != ZIGNORE)
+	{
+		sendResponse(rc);
+	}
+
+	esc.gt2 = 0;
+	esc.len = 0;
+	mode = newMode;
+}
+
+void ZModem::commandModeHandler()
+{
+	if (serial->available() > 0)
+	{
+		bool crReceived = readSerialStream();
+		clearPlusProgress();
+		if (crReceived && buflen != 0)
+		{
+			ZResult rc = execCommand();
+			if (!settings.suppressResponses)
+			{
+				sendResponse(rc);
+			}
+		}
+	}
+}
+
+void ZModem::configModeHandler()
+{
+}
+
+void ZModem::streamModeHandler()
+{
+	if (socket != nullptr && socket->connected())
+	{
+		while (serial->available() > 0)
+		{
+			char c = serial->read();
+			if (c != EC || (millis() - esc.gt1) < 1000 || esc.len >= sizeof(esc.buf))
+			{
+				if (esc.len)
+				{
+					socket->write(esc.buf, esc.len);
+					esc.len = 0;
+					esc.gt2 = 0;
+				}
+				socket->write(c);
+				esc.gt1 = millis();
+			}
+			else
+			{
+				esc.buf[esc.len++] = c;
+				if (esc.len >= 3)
+				{
+					esc.gt2 = millis();
+				}
+			}
+		}
+		if (esc.gt2 && (millis() - esc.gt2) > 1000)
+		{
+			esc.gt2 = 0;
+			esc.len = 0;
+			switchTo(ZCOMMAND_MODE, ZOK);
+		}
+
+		if (socket->available() > 0)
+		{
+			char c = socket->read();
+			serial->write(c);
+		}
+	}
+	else
+	{
+		delete socket;
+		socket = nullptr;
+		switchTo(ZCOMMAND_MODE, ZNOCARRIER);
+	}
+}
+
+void ZModem::printModeHandler()
+{
 }
 
 void ZModem::factoryReset()
 {
+	DPRINTLN("Factory Reset!");
 }
 
 void ZModem::disconnect()
@@ -1034,6 +1281,7 @@ void ZModem::begin()
 	serial->begin(settings.baudRate, DEFAULT_SERIAL_CONFIG);
 	serial->setRxBufferSize(MAX_COMMAND_SIZE);
 	DPRINTF("COM port open at %d bit/s\n", settings.baudRate);
+	digitalWrite(PIN_LED_HS, settings.baudRate >= DEFAULT_HS_RATE ? HIGH : LOW);
 
 	if (settings.wifiSSID.length() > 0)
 	{
@@ -1045,21 +1293,19 @@ void ZModem::begin()
 
 void ZModem::tick()
 {
-	if (mode != nullptr)
+	switch (mode)
 	{
-		mode->tick();
-	}
-	else if (serial->available() > 0)
-	{
-		bool crReceived = readSerialStream();
-		clearPlusProgress();
-		if (crReceived && buflen != 0)
-		{
-			ZResult rc = execCommand();
-			if (!settings.suppressResponses)
-			{
-				sendResponse(rc);
-			}
-		}
+	case ZCOMMAND_MODE:
+		commandModeHandler();
+		break;
+	case ZCONFIG_MODE:
+		configModeHandler();
+		break;
+	case ZSTREAM_MODE:
+		streamModeHandler();
+		break;
+	case ZPRINT_MODE:
+		printModeHandler();
+		break;
 	}
 }
