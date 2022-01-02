@@ -1216,8 +1216,12 @@ void ZModem::streamModeHandler()
 
 		if (socket->available() > 0)
 		{
-			char c = socket->read();
-			serial->write(c);
+			int free = serial->availableForWrite();
+			while (--free > 0 && socket->available() > 0)
+			{
+				char c = socket->read();
+				serial->write(c);
+			}
 		}
 	}
 	else
