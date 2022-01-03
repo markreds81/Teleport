@@ -4,25 +4,32 @@
 #include <LinkedList.h>
 #include <stdint.h>
 
+#define PHONEBOOK_FILE_NAME "/phonebook.dat"
+
 struct PBEntry
 {
     unsigned long number;
-    char hostname[32];
-    uint16_t port;
+    char address[50];
     char modifiers[15];
     char notes[128];
+
+    void update(unsigned long number, const char *address, const char *modifiers, const char *notes);
+
+    static PBEntry *create(unsigned long number, const char *address, const char *modifiers, const char *notes);
 };
 
 class ZPhonebook: public LinkedList<struct PBEntry *>
 {
 public:
+    static bool checkEntry(char *cmd);
+
     ZPhonebook();
     ~ZPhonebook();
 
     void load();
     void save();
 
-    PBEntry *findByNamber(unsigned long number);
+    int findByNumber(unsigned long number);
 };
 
 #endif

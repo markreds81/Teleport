@@ -1140,6 +1140,23 @@ ZResult ZModem::execDial(unsigned long vval, uint8_t *vbuf, int vlen, bool isNum
 	else if (vval >= 0 && isNumber)
 	{
 		DPRINTF("Phonebook entry #%lu\n", vval);
+		int pos = phonebook.findByNumber(vval);
+		if (pos >= 0)
+		{
+			PBEntry *pbe = phonebook.get(pos);
+			return execDial(0, (uint8_t *)pbe->address, strlen(pbe->address), false, pbe->modifiers);
+		}
+		for (int i = 0; i < clients.size(); i++)
+		{
+			ZClient *c = clients.get(i);
+			if (c->id() == vval && c->connected())
+			{
+				socket = c;
+				switchTo(ZSTREAM_MODE);
+				return ZCONNECT;
+			}
+		}
+		return ZERROR;
 	}
 	else
 	{
@@ -1327,26 +1344,23 @@ ZResult ZModem::execHangup(int vval, uint8_t *vbuf, int vlen, bool isNumber)
 
 ZResult ZModem::execPhonebook(unsigned long vval, uint8_t *vbuf, int vlen, bool isNumber, const char *dmodifiers)
 {
-	serial->print(settings.EOLN);
 	if (vlen == 0 || isNumber || (vlen == 1 && *vbuf == '?'))
 	{
-		size_t modlen = strlen(dmodifiers) == 0;
 		for (int i = 0; i < phonebook.size(); i++)
 		{
 			PBEntry *pbe = phonebook.get(i);
-			if ((!isNumber || vval == 0 || vval == pbe->number) && (modlen == 0 || modifierCompare(dmodifiers, pbe->modifiers)))
+			if ((!isNumber || vval == 0 || vval == pbe->number) && (strlen(dmodifiers) == 0 || modifierCompare(dmodifiers, pbe->modifiers) == 0))
 			{
-				serial->print(pbe->number);
-				for (int i = 0; i < 10 - modlen; i++)
+				serial->print(settings.EOLN);
+				size_t off = serial->print(pbe->number);
+				for (int i = 0; i < 10 - off; i++)
 					serial->print(" ");
 				serial->print(" ");
 				serial->print(pbe->modifiers);
-				for (int i = 0; i < 5 - modlen; i++)
+				for (int i = 1; i < 5 - strlen(pbe->modifiers); i++)
 					serial->print(" ");
 				serial->print(" ");
-				serial->print(pbe->hostname);
-				serial->print(":");
-				serial->print(pbe->port);
+				serial->print(pbe->address);
 				if (!isNumber)
 				{
 					serial->print(" (");
@@ -1365,16 +1379,44 @@ ZResult ZModem::execPhonebook(unsigned long vval, uint8_t *vbuf, int vlen, bool 
 		if (strchr("0123456789", *cptr) < 0)
 			return ZERROR;
 	char *rest = eq + 1;
-	*eq = 0;
+	*eq = '\0';
 	if (strlen((char *)vbuf) > 9)
 		return ZERROR;
 	unsigned long number = atol((char *)vbuf);
-	PBEntry *pbe = phonebook.findByNamber(number);
-	if (strcmp("DELETE", rest) == 0 || strcmp("DELETE", rest) == 0)
+	int pos = phonebook.findByNumber(number);
+	if (strcmp("delete", rest) == 0 || strcmp("DELETE", rest) == 0)
 	{
-		if (pbe == nullptr)
+		if (pos < 0)
 			return ZERROR;
+		PBEntry *pbe = phonebook.remove(pos);
+		delete pbe;
+		phonebook.save();
+		return ZOK;
 	}
+	char *colon = strchr(rest, ':');
+	if (colon == NULL)
+		return ZERROR;
+	char *comma = strchr(colon, ',');
+	char *notes = NULL;
+	if (comma != NULL)
+	{
+		*comma = '\0';
+		notes = comma + 1;
+		DPRINTLN(notes);
+	}
+	if (!ZPhonebook::checkEntry(colon))
+		return ZERROR;
+	if (pos < 0)
+	{
+		PBEntry *pbe = PBEntry::create(number, rest, dmodifiers, notes);
+		phonebook.add(pbe);
+	}		
+	else
+	{
+		PBEntry *pbe = phonebook.get(pos);
+		pbe->update(number, rest, dmodifiers, notes);
+	}
+	phonebook.save();
 	return ZOK;
 }
 
@@ -1527,6 +1569,7 @@ void ZModem::begin()
 	else
 	{
 		settings.load();
+		phonebook.load();
 	}
 
 	serial->begin(settings.baudRate, DEFAULT_SERIAL_CONFIG);
