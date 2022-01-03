@@ -18,6 +18,8 @@ class ZModem
 private:
 	static const char *const RESULT_CODES_V0[];
 	static const char *const RESULT_CODES_V1[];
+	static const unsigned char PET2ASC_TABLE[256];
+	static const unsigned char ASC2PET_TABLE[256];
 
 	ZMode mode;
 	ZEscape esc;
@@ -27,8 +29,6 @@ private:
 	LinkedList<ZClient *> clients;
 	uint8_t buffer[MAX_COMMAND_SIZE];
 	size_t buflen;
-	unsigned long lastNonPlusTimeMs = 0;
-	unsigned long currentExpiresTimeMs = 0;
 	char CRLF[4];
 	char LFCR[4];
 	char LF[2];
@@ -36,6 +36,7 @@ private:
 	char BS;
 	char EC;
 	char ECS[32];
+	String termType;
 	String lastCommand;
 	IPAddress *staticIP = nullptr;
 	IPAddress *staticDNS = nullptr;
@@ -43,13 +44,18 @@ private:
 	IPAddress *staticSN = nullptr;
 
 	char lc(char c);
+	bool asc2pet(char *c);
+	bool processIAC(char *c);
 	void setStaticIPs(IPAddress *ip, IPAddress *dns, IPAddress *gateway, IPAddress *subnet);
 	bool connectWiFi(const char *ssid, const char *pswd, IPAddress *ip, IPAddress *dns, IPAddress *gateway, IPAddress *subnet);
 	bool readSerialStream();
-	void clearPlusProgress();
 	void showInitMessage();
 	void sendResponse(ZResult rc);
 	void sendConnectionNotice(int id);
+
+	size_t socketWrite(uint8_t c);
+	size_t socketWrite(const uint8_t *buf, size_t size);
+	uint8_t socketRead(unsigned long tmout);
 
 	ZResult execCommand();
 	ZResult execReset();
@@ -119,16 +125,6 @@ public:
 	inline int socketRead()
 	{
 		return socket != nullptr ? socket->read() : -1;
-	}
-
-	inline size_t socketWrite(uint8_t c)
-	{
-		return socket != nullptr ? socket->write(c) : 0;
-	}
-
-	inline size_t socketWrite(const uint8_t *buf, size_t size)
-	{
-		return socket != nullptr ? socket->write(buf, size) : 0;
 	}
 };
 

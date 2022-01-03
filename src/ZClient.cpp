@@ -6,6 +6,7 @@ ZClient::ZClient() : WiFiClient()
 {
     m_id = nextClientId++;
     m_answered = false;
+    flags = 0;
 }
 
 int ZClient::connect(const char *host, uint16_t port)
