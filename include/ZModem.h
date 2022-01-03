@@ -6,6 +6,7 @@
 #include "ZSerial.h"
 #include "ZClient.h"
 #include "ZSettings.h"
+#include "ZPhonebook.h"
 #include <Arduino.h>
 #include <LinkedList.h>
 
@@ -26,6 +27,7 @@ private:
 	ZSerial *serial;
 	ZClient *socket;
 	ZSettings settings;
+	ZPhonebook phonebook;
 	LinkedList<ZClient *> clients;
 	uint8_t buffer[MAX_COMMAND_SIZE];
 	size_t buflen;
@@ -46,6 +48,7 @@ private:
 	char lc(char c);
 	bool asc2pet(char *c);
 	bool processIAC(char *c);
+	int modifierCompare(const char *ma, const char *m2);
 	void setStaticIPs(IPAddress *ip, IPAddress *dns, IPAddress *gateway, IPAddress *subnet);
 	bool connectWiFi(const char *ssid, const char *pswd, IPAddress *ip, IPAddress *dns, IPAddress *gateway, IPAddress *subnet);
 	bool readSerialStream();
@@ -66,6 +69,7 @@ private:
 	ZResult execDial(unsigned long vval, uint8_t *vbuf, int vlen, bool isNumber, const char *dmodifiers);
 	ZResult execConnect(int vval, uint8_t *vbuf, int vlen, bool isNumber, const char *dmodifiers);
 	ZResult execHangup(int vval, uint8_t *vbuf, int vlen, bool isNumber);
+	ZResult execPhonebook(unsigned long vval, uint8_t *vbuf, int vlen, bool isNumber, const char *dmodifiers);
 
 	void switchTo(ZMode newMode, ZResult rc = ZIGNORE);
 	void commandModeHandler();

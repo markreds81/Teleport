@@ -191,6 +191,27 @@ bool ZModem::processIAC(char *c)
 	return true;
 }
 
+int ZModem::modifierCompare(const char *m1, const char *m2)
+{
+	size_t l1 = strlen(m1);
+	size_t l2 = strlen(m2);
+	if (l1 != l2)
+		return -1;
+	for (int i1 = 0; i1 < l1; i1++)
+	{
+		char c1 = tolower(m1[i1]);
+		bool found = false;
+		for (int i2 = 0; i2 < l2; i2++)
+		{
+			char c2 = tolower(m2[i2]);
+			found = found || (c1 == c2);
+		}
+		if (!found)
+			return -1;
+	}
+	return 0;
+}
+
 void ZModem::setStaticIPs(IPAddress *ip, IPAddress *dns, IPAddress *gateway, IPAddress *subnet)
 {
 	if (staticIP != nullptr)
@@ -664,7 +685,7 @@ ZResult ZModem::execCommand()
 				rc = execDial(vval, vbuf, vlen, isNumber, dmodifiers.c_str());
 				break;
 			case 'p':
-				DPRINTLN("p");
+				rc = execPhonebook(vval, vbuf, vlen, isNumber, dmodifiers.c_str());
 				break;
 			case 'o':
 				if (vlen == 0 || vval == 0)
@@ -1302,6 +1323,59 @@ ZResult ZModem::execHangup(int vval, uint8_t *vbuf, int vlen, bool isNumber)
 		}
 	}
 	return ZERROR;
+}
+
+ZResult ZModem::execPhonebook(unsigned long vval, uint8_t *vbuf, int vlen, bool isNumber, const char *dmodifiers)
+{
+	serial->print(settings.EOLN);
+	if (vlen == 0 || isNumber || (vlen == 1 && *vbuf == '?'))
+	{
+		size_t modlen = strlen(dmodifiers) == 0;
+		for (int i = 0; i < phonebook.size(); i++)
+		{
+			PBEntry *pbe = phonebook.get(i);
+			if ((!isNumber || vval == 0 || vval == pbe->number) && (modlen == 0 || modifierCompare(dmodifiers, pbe->modifiers)))
+			{
+				serial->print(pbe->number);
+				for (int i = 0; i < 10 - modlen; i++)
+					serial->print(" ");
+				serial->print(" ");
+				serial->print(pbe->modifiers);
+				for (int i = 0; i < 5 - modlen; i++)
+					serial->print(" ");
+				serial->print(" ");
+				serial->print(pbe->hostname);
+				serial->print(":");
+				serial->print(pbe->port);
+				if (!isNumber)
+				{
+					serial->print(" (");
+					serial->print(pbe->notes);
+					serial->print(")");
+				}
+				delay(10);
+			}
+		}
+		return ZOK;
+	}
+	char *eq = strchr((char *)vbuf, '=');
+	if (eq == NULL)
+		return ZERROR;
+	for (char *cptr = (char *)vbuf; cptr != eq; cptr++)
+		if (strchr("0123456789", *cptr) < 0)
+			return ZERROR;
+	char *rest = eq + 1;
+	*eq = 0;
+	if (strlen((char *)vbuf) > 9)
+		return ZERROR;
+	unsigned long number = atol((char *)vbuf);
+	PBEntry *pbe = phonebook.findByNamber(number);
+	if (strcmp("DELETE", rest) == 0 || strcmp("DELETE", rest) == 0)
+	{
+		if (pbe == nullptr)
+			return ZERROR;
+	}
+	return ZOK;
 }
 
 void ZModem::switchTo(ZMode newMode, ZResult rc)
