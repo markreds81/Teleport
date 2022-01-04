@@ -63,6 +63,7 @@ private:
 	ZResult execCommand();
 	ZResult execReset();
 	ZResult execInfo(int vval, uint8_t *vbuf, int vlen, bool isNumber);
+	ZResult execTime(int vval, uint8_t *vbuf, int vlen, bool isNumber);
 	ZResult execWiFi(int vval, uint8_t *vbuf, int vlen, bool isNumber, const char *dmodifiers);
 	ZResult execEOLN(int vval, uint8_t *vbuf, int vlen, bool isNumber);
 	ZResult execBaud(int vval, uint8_t *vbuf, int vlen);

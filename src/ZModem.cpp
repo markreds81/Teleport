@@ -271,11 +271,13 @@ bool ZModem::connectWiFi(const char *ssid, const char *pswd, IPAddress *ip, IPAd
 		}
 		else
 		{
+			digitalWrite(PIN_LED_WIFI, attemps % 2);
 			DPRINT(".");
 			delay(500);
 		}
 		attemps++;
 	}
+	digitalWrite(PIN_LED_WIFI, LOW);
 	DPRINTLN("failed");
 	WiFi.disconnect();
 	return false;
@@ -851,12 +853,7 @@ ZResult ZModem::execCommand()
 					DPRINTLN("n");
 					break;
 				case 't':
-					struct tm now;
-					if (getLocalTime(&now))
-					{
-						serial->print(settings.EOLN);
-						serial->printf("%4d-%2d-%02d %02d:%02d:%02d", now.tm_year, now.tm_mon, now.tm_mday, now.tm_hour, now.tm_min, now.tm_sec);
-					}
+					rc = execTime(vval, vbuf, vlen, isNumber);
 					break;
 				case 'u':
 					DPRINTLN("u");
@@ -982,6 +979,18 @@ ZResult ZModem::execInfo(int vval, uint8_t *vbuf, int vlen, bool isNumber)
 	}
 
 	return ZOK;
+}
+
+ZResult ZModem::execTime(int vval, uint8_t *vbuf, int vlen, bool isNumber)
+{
+	struct tm now;
+	if (getLocalTime(&now))
+	{
+		serial->print(settings.EOLN);
+		serial->print(&now, "%A, %B %d %Y %H:%M:%S");
+		return ZOK;
+	}
+	return ZERROR;
 }
 
 ZResult ZModem::execWiFi(int vval, uint8_t *vbuf, int vlen, bool isNumber, const char *dmodifiers)
