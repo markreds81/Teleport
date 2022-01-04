@@ -851,7 +851,12 @@ ZResult ZModem::execCommand()
 					DPRINTLN("n");
 					break;
 				case 't':
-					DPRINTLN("t");
+					struct tm now;
+					if (getLocalTime(&now))
+					{
+						serial->print(settings.EOLN);
+						serial->printf("%4d-%2d-%02d %02d:%02d:%02d", now.tm_year, now.tm_mon, now.tm_mday, now.tm_hour, now.tm_min, now.tm_sec);
+					}
 					break;
 				case 'u':
 					DPRINTLN("u");
@@ -872,7 +877,16 @@ ZResult ZModem::execCommand()
 
 ZResult ZModem::execReset()
 {
-	return ZERROR;
+	for (int i = 0; i < clients.size(); i++)
+	{
+		ZClient *c = clients.get(i);
+		c->stop();
+		delay(50);
+		delete c;
+	}
+	clients.clear();
+	settings.load();
+	return ZOK;
 }
 
 ZResult ZModem::execInfo(int vval, uint8_t *vbuf, int vlen, bool isNumber)
