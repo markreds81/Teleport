@@ -4,7 +4,7 @@
 #include <LinkedList.h>
 #include <stdint.h>
 
-#define PHONEBOOK_PREFIX "/phonebook/"
+#define ZPHONEBOOK_PREFIX "/phonebook"
 
 struct PBEntry
 {

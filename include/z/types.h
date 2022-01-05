@@ -9,7 +9,7 @@
 
 #define ENC_TYPE_NONE WIFI_AUTH_OPEN
 
-#include "z/config.h"
+#include "z/options.h"
 #include <stdint.h>
 
 enum FlowControlType

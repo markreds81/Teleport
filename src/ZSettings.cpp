@@ -1,7 +1,7 @@
 #include "ZSettings.h"
 #include "ZDebug.h"
 #include "ZBase64.h"
-#include "z/config.h"
+#include "z/options.h"
 
 ZSettings::ZSettings()
 {
@@ -127,8 +127,6 @@ void ZSettings::load()
     File file = SPIFFS.open(SETTINGS_FILE_NAME, "r");
     if (file)
     {
-        DPRINTLN(file.readString());
-
         if ((len = getvalue(&file, "EOLN", buf, sizeof(buf), true)) > 0)
         {
             DPRINT("EOLN:");

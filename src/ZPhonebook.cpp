@@ -38,17 +38,26 @@ int ZPhonebook::indexOf(unsigned long number)
 
 void ZPhonebook::begin()
 {
-    File root = SPIFFS.open(PHONEBOOK_PREFIX);
+    toc.clear();
+    File root = SPIFFS.open(ZPHONEBOOK_PREFIX);
     if (root)
     {
+        int i = 0;
         File file = root.openNextFile();
-		int i = 0;
+        size_t off = strlen(ZPHONEBOOK_PREFIX) + 1;        
         while (file)
         {
-            unsigned long number = atol(file.name());
-            toc.add(number);
-            file.close();
-            DPRINTF("Phonebook entry #%d (%lu) %s\n", i++, number, "found");
+            char name[32];
+            strcpy(name, file.name() + off);
+            char *dot = strchr(name, '.');
+            if (dot != NULL)
+            {
+                *dot = '\0';
+                unsigned long number = atol(name);
+                toc.add(number);
+                DPRINTF("Phonebook entry #%d (%lu) %s\n", i++, number, "found");
+            }
+            file.close();            
             file = root.openNextFile();
         }
         root.close();
@@ -60,7 +69,7 @@ bool ZPhonebook::get(int index, PBEntry *pbe)
     char name[32];
     size_t bytesRead = 0;
     memset(pbe, 0, sizeof(PBEntry));
-    snprintf(name, sizeof(name), "%s%lu.dat", PHONEBOOK_PREFIX, toc.get(index));
+    snprintf(name, sizeof(name), "%s/%lu.dat", ZPHONEBOOK_PREFIX, toc.get(index));
     File file = SPIFFS.open(name, "r");
     if (file)
     {
@@ -78,7 +87,7 @@ bool ZPhonebook::put(PBEntry *pbe)
 {
     char name[32];
     size_t bytesWritten = 0;
-    snprintf(name, sizeof(name), "%s%lu.dat", PHONEBOOK_PREFIX, pbe->number);
+    snprintf(name, sizeof(name), "%s/%lu.dat", ZPHONEBOOK_PREFIX, pbe->number);
     File file = SPIFFS.open(name, "w");
     if (file)
     {
@@ -116,7 +125,7 @@ void ZPhonebook::remove(int index)
 {
     char name[32];
 	unsigned long number = toc.get(index);
-    snprintf(name, sizeof(name), "%s%lu.dat", PHONEBOOK_PREFIX, number);
+    snprintf(name, sizeof(name), "%s/%lu.dat", ZPHONEBOOK_PREFIX, number);
     if (SPIFFS.remove(name))
     {
         toc.remove(index);

@@ -1527,8 +1527,17 @@ void ZModem::streamModeHandler()
 	}
 	else
 	{
-		delete socket;
-		socket = nullptr;
+		for (int i = 0; i < clients.size(); i++)
+		{
+			if (clients.get(i) == socket)
+			{
+				clients.remove(i);
+				delete socket;
+				socket = nullptr;
+				break;
+			}
+		}
+		
 		switchTo(ZCOMMAND_MODE, ZNOCARRIER);
 	}
 }

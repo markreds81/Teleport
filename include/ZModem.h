@@ -1,7 +1,7 @@
 #ifndef ZMODEM_H
 #define ZMODEM_H
 
-#include "z/config.h"
+#include "z/options.h"
 #include "z/types.h"
 #include "ZSerial.h"
 #include "ZClient.h"

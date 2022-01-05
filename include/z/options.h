@@ -1,7 +1,7 @@
-#ifndef ZCONFIG_H
-#define ZCONFIG_H
+#ifndef ZOPTIONS_H
+#define ZOPTIONS_H
 
-#define ZMODEM_VERSION "3.6.5"
+#define ZMODEM_VERSION "1.0.0"
 
 #define PIN_FACTORY_RESET GPIO_NUM_0
 #define PIN_LED_HS GPIO_NUM_2
