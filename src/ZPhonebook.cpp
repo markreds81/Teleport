@@ -3,27 +3,6 @@
 #include "string.h"
 #include <SPIFFS.h>
 
-PBEntry *PBEntry::create(unsigned long number, const char *address, const char *modifiers, const char *notes)
-{
-    PBEntry *pbe = new PBEntry();
-
-    pbe->update(number, address, modifiers, notes);
-
-    return pbe;
-}
-
-void PBEntry::update(unsigned long number, const char *address, const char *modifiers, const char *notes)
-{
-    memset(this, 0, sizeof(PBEntry));
-    this->number = number;
-    if (address != NULL)
-        strncpy(this->address, address, sizeof(this->address));
-    if (modifiers != NULL)
-        strncpy(this->modifiers, modifiers, sizeof(this->modifiers));
-    if (notes != NULL)
-        strncpy(this->notes, notes, sizeof(this->notes));
-}
-
 bool ZPhonebook::checkEntry(char *cmd)
 {
     bool error = false;
@@ -39,58 +18,108 @@ bool ZPhonebook::checkEntry(char *cmd)
 
 ZPhonebook::ZPhonebook()
 {
-    // NOP
 }
 
 ZPhonebook::~ZPhonebook()
 {
 }
 
-void ZPhonebook::load()
+int ZPhonebook::indexOf(unsigned long number)
 {
-    File file = SPIFFS.open(PHONEBOOK_FILE_NAME, "r");
+    for (int i = 0; i < toc.size(); i++)
+    {
+        if (toc.get(i) == number)
+        {
+            return i;
+        }
+    }
+    return -1;
+}
+
+void ZPhonebook::begin()
+{
+    File root = SPIFFS.open(PHONEBOOK_PREFIX);
+    if (root)
+    {
+        File file = root.openNextFile();
+		int i = 0;
+        while (file)
+        {
+            unsigned long number = atol(file.name());
+            toc.add(number);
+            file.close();
+            DPRINTF("Phonebook entry #%d (%lu) %s\n", i++, number, "found");
+            file = root.openNextFile();
+        }
+        root.close();
+    }
+}
+
+bool ZPhonebook::get(int index, PBEntry *pbe)
+{
+    char name[32];
+    size_t bytesRead = 0;
+    memset(pbe, 0, sizeof(PBEntry));
+    snprintf(name, sizeof(name), "%s%lu.dat", PHONEBOOK_PREFIX, toc.get(index));
+    File file = SPIFFS.open(name, "r");
     if (file)
     {
-        size_t bytesRead = 0;
-        while (file.available() >= sizeof(PBEntry))
+        if (file.available() >= sizeof(PBEntry))
         {
-            PBEntry *pbe = new PBEntry();
             bytesRead += file.readBytes((char *)pbe, sizeof(PBEntry));
-            this->add(pbe);
+            DPRINTF("Phonebook entry #%d (%lu) %s\n", index, pbe->number, "read");
         }
         file.close();
-        DPRINTF("Phonebook loaded, %d bytes %s\n", bytesRead, "read");
     }
+    return bytesRead > 0;
 }
 
-void ZPhonebook::save()
+bool ZPhonebook::put(PBEntry *pbe)
 {
-    File file = SPIFFS.open(PHONEBOOK_FILE_NAME, "w");
+    char name[32];
+    size_t bytesWritten = 0;
+    snprintf(name, sizeof(name), "%s%lu.dat", PHONEBOOK_PREFIX, pbe->number);
+    File file = SPIFFS.open(name, "w");
     if (file)
     {
-        size_t bytesWritten = 0;
-        for (int i = 0; i < this->size(); i++)
-        {
-            PBEntry *pbe = this->get(i);
-            bytesWritten += file.write((uint8_t *)pbe, sizeof(PBEntry));
-        }
+        bytesWritten += file.write((uint8_t *)pbe, sizeof(PBEntry));
         file.close();
-        DPRINTF("Phonebook saved, %d bytes %s\n", bytesWritten, "written");
+        int i = indexOf(pbe->number);
+        if (i < 0)
+        {
+            toc.add(pbe->number);
+            DPRINTF("Phonebook entry #%d (%lu) %s\n", toc.size() - 1, pbe->number, "added");
+        }
+        else
+        {
+            DPRINTF("Phonebook entry #%d (%lu) %s\n", i, pbe->number, "updated");
+        }
     }
+    return bytesWritten > 0;
 }
 
-int ZPhonebook::findByNumber(unsigned long number)
+bool ZPhonebook::put(unsigned long number, const char *address, const char *modifiers, const char *notes)
 {
-    int i;
-    bool found = false;
-    for (i = 0; i < this->size(); i++)
+    PBEntry pbe;
+    memset(&pbe, 0, sizeof(pbe));
+    pbe.number = number;
+    if (address != NULL)
+        strncpy(pbe.address, address, sizeof(pbe.address));
+    if (modifiers != NULL)
+        strncpy(pbe.modifiers, modifiers, sizeof(pbe.modifiers));
+    if (notes != NULL)
+        strncpy(pbe.notes, notes, sizeof(pbe.notes));
+    return put(&pbe);
+}
+
+void ZPhonebook::remove(int index)
+{
+    char name[32];
+	unsigned long number = toc.get(index);
+    snprintf(name, sizeof(name), "%s%lu.dat", PHONEBOOK_PREFIX, number);
+    if (SPIFFS.remove(name))
     {
-        PBEntry *pbe = this->get(i);
-        if (pbe->number == number)
-        {
-            found = true;
-            break;
-        }
+        toc.remove(index);
+		DPRINTF("Phonebook entry #%d (%lu) %s\n", index, number, "removed");
     }
-    return found ? i : -1;
 }

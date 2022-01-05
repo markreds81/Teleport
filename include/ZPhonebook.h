@@ -4,7 +4,7 @@
 #include <LinkedList.h>
 #include <stdint.h>
 
-#define PHONEBOOK_FILE_NAME "/phonebook.dat"
+#define PHONEBOOK_PREFIX "/phonebook/"
 
 struct PBEntry
 {
@@ -12,24 +12,28 @@ struct PBEntry
     char address[50];
     char modifiers[15];
     char notes[128];
-
-    void update(unsigned long number, const char *address, const char *modifiers, const char *notes);
-
-    static PBEntry *create(unsigned long number, const char *address, const char *modifiers, const char *notes);
 };
 
-class ZPhonebook: public LinkedList<struct PBEntry *>
+class ZPhonebook
 {
+private:
+    LinkedList<unsigned long> toc;
+
 public:
     static bool checkEntry(char *cmd);
 
     ZPhonebook();
-    ~ZPhonebook();
+    virtual ~ZPhonebook();
 
-    void load();
-    void save();
+    inline int size() { return toc.size(); }
+    int indexOf(unsigned long number);
 
-    int findByNumber(unsigned long number);
+    void begin();
+
+	bool get(int index, PBEntry *pbe);
+    bool put(PBEntry *pbe);
+    bool put(unsigned long number, const char *address, const char *modifiers, const char *notes);
+    void remove(int index);
 };
 
 #endif
