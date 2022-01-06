@@ -960,6 +960,14 @@ ZResult ZModem::execInfo(int vval, uint8_t *vbuf, int vlen, bool isNumber)
 		serial->print(settings.EOLN);
 		serial->print(WiFi.macAddress());
 		break;
+	case 7:
+		struct tm now;
+		if (getLocalTime(&now))
+		{
+			serial->print(settings.EOLN);
+			serial->print(&now, "%A, %B %d %Y %H:%M:%S");
+		}
+		break;
 	case 8:
 		serial->print(settings.EOLN);
 		serial->print(compile_date);
