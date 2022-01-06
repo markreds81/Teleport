@@ -3,28 +3,66 @@
 #include "ZBase64.h"
 #include "z/options.h"
 
+IPAddress *ZSettings::parseIP(const char *str)
+{
+    uint8_t dots[4];
+    int dotDex = 0;
+    char *le = (char *)str;
+    const char *ld = str + strlen(str);
+    
+    if (strlen(str) < 7)
+    {
+        return NULL;
+    }
+        
+    for (char *e = le; e <= ld; e++)
+    {
+        if ((*e == '.') || (e == ld))
+        {
+            if (le == e)
+            {
+                break;
+            }                
+            *e = 0;
+            String sdot = le;
+            sdot.trim();
+            if ((sdot.length() == 0) || (dotDex > 3))
+            {
+                dotDex = 99;
+                break;
+            }
+            dots[dotDex++] = (uint8_t)atoi(sdot.c_str());
+            if (e == ld)
+                le = e;
+            else
+                le = e + 1;
+        }
+    }
+    if (dotDex != 4 || *le != 0)
+    {
+        return nullptr;
+    }
+        
+    return new IPAddress(dots[0], dots[1], dots[2], dots[3]);
+}
+
 ZSettings::ZSettings()
 {
-    // NOP
+    doEcho = true;
+    numericResponses = false;
+    suppressResponses = false;
+    longResponses = false;
+    baudRate = DEFAULT_BAUD_RATE;
+    flowControlType = FCT_DISABLED;
+    EOLN = "\r\n";
+    hostname = "";
+    wifiSSID = "";
+    wifiPSWD = "";
 }
 
 ZSettings::~ZSettings()
 {
     // NOP
-}
-
-void ZSettings::setDefaults()
-{
-    doEcho = true;
-	numericResponses = false;
-	suppressResponses = false;
-    longResponses = false;
-    baudRate = DEFAULT_BAUD_RATE;
-	flowControlType = FCT_DISABLED;
-	EOLN = "\r\n";
-    hostname = "";
-    wifiSSID = "";
-    wifiPSWD = "";
 }
 
 int ZSettings::scanline(File *file, uint8_t *dst, int size)
@@ -117,12 +155,30 @@ int ZSettings::putvalue(File *file, const char *key, int value)
     return bytesWritten;
 }
 
-void ZSettings::load()
+void ZSettings::loadFactoryProfile(long id)
+{
+    switch (id)
+    {
+    default:
+        doEcho = true;
+        numericResponses = false;
+        suppressResponses = false;
+        longResponses = false;
+        baudRate = DEFAULT_BAUD_RATE;
+        flowControlType = FCT_DISABLED;
+        EOLN = "\r\n";
+        hostname = "";
+        wifiSSID = "";
+        wifiPSWD = "";  
+    }
+
+    DPRINTF("%s profile %lu %s\n", "Factory", id, "loaded");
+}
+
+void ZSettings::loadUserProfile(long id)
 {
     int len;
     char buf[128];
-
-    setDefaults();
 
     File file = SPIFFS.open(SETTINGS_FILE_NAME, "r");
     if (file)
@@ -177,14 +233,16 @@ void ZSettings::load()
         }
 
         file.close();
+
+        DPRINTF("%s profile %lu %s\n", "User", id, "loaded");
     }
     else
     {
-        DPRINTLN("Unable to read config file");
+        DPRINTF("Unable to %s config file\n", "read");
     }
 }
 
-void ZSettings::save()
+void ZSettings::saveUserProfile(long id)
 {
     File file = SPIFFS.open(SETTINGS_FILE_NAME, "w");
     int bytes = 0;
@@ -202,48 +260,12 @@ void ZSettings::save()
     
     file.close();
 
-    DPRINTF("Settings saved (%d bytes written)\n", bytes);
-}
-
-IPAddress *ZSettings::parseIP(const char *str)
-{
-    uint8_t dots[4];
-    int dotDex = 0;
-    char *le = (char *)str;
-    const char *ld = str + strlen(str);
-    
-    if (strlen(str) < 7)
+    if (bytes > 0)
     {
-        return NULL;
+        DPRINTF("%s profile %lu %s\n", "User", id, "updated");
     }
-        
-    for (char *e = le; e <= ld; e++)
+    else
     {
-        if ((*e == '.') || (e == ld))
-        {
-            if (le == e)
-            {
-                break;
-            }                
-            *e = 0;
-            String sdot = le;
-            sdot.trim();
-            if ((sdot.length() == 0) || (dotDex > 3))
-            {
-                dotDex = 99;
-                break;
-            }
-            dots[dotDex++] = (uint8_t)atoi(sdot.c_str());
-            if (e == ld)
-                le = e;
-            else
-                le = e + 1;
-        }
+        DPRINTF("Unable to %s config file\n", "write");
     }
-    if (dotDex != 4 || *le != 0)
-    {
-        return nullptr;
-    }
-        
-    return new IPAddress(dots[0], dots[1], dots[2], dots[3]);
 }

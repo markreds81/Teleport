@@ -546,7 +546,7 @@ ZResult ZModem::execCommand()
 				else if (cmd == '&' || cmd == '%')
 				{
 					i++;
-					sec = sbuf[vstart];
+					sec = lc(sbuf[vstart]);
 					vstart++;
 				}
 			}
@@ -817,13 +817,22 @@ ZResult ZModem::execCommand()
 					DPRINTLN("k");
 					break;
 				case 'l':
-					settings.load();
+					if (isNumber)
+						settings.loadUserProfile(vval);
+					else
+						rc = ZERROR;
 					break;
 				case 'w':
-					settings.save();
+					if (isNumber)
+						settings.saveUserProfile(vval);
+					else
+						rc = ZERROR;
 					break;
 				case 'f':
-					DPRINTLN("f");
+					if (isNumber)
+						settings.loadFactoryProfile(vval);
+					else
+						rc = ZERROR;
 					break;
 				case 'm':
 					DPRINTLN("m");
@@ -882,7 +891,8 @@ ZResult ZModem::execReset()
 		delete c;
 	}
 	clients.clear();
-	settings.load();
+	socket = nullptr;
+	settings.loadUserProfile(0);
 	return ZOK;
 }
 
@@ -1555,6 +1565,14 @@ void ZModem::disconnect()
 {
 	if (socket != nullptr)
 	{
+		for (int i = 0; i < clients.size(); i++)
+		{
+			if (clients.get(i) == socket)
+			{
+				clients.remove(i);
+				break;
+			}
+		}
 		socket->flush();
 		socket->stop();
 		delay(500);
@@ -1589,7 +1607,7 @@ void ZModem::begin()
 	}
 	else
 	{
-		settings.load();
+		settings.loadUserProfile(0);
 		phonebook.begin();
 	}
 

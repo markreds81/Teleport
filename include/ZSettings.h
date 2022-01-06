@@ -10,7 +10,6 @@
 class ZSettings
 {
 private:
-    void setDefaults();
     int scanline(File *file, uint8_t *dst, int size);
     int getvalue(File *file, const char *key, char *value, int size, bool decode = false);
     int putvalue(File *file, const char *key, const char *value, bool encode = false);
@@ -27,14 +26,14 @@ public:
 	bool suppressResponses;
     bool longResponses;
 
+    static IPAddress *parseIP(const char *str);
+
     ZSettings();
     virtual ~ZSettings();
 
-    void reset();
-    void load();
-    void save();
-
-    static IPAddress *parseIP(const char *str);
+    void loadFactoryProfile(long id);
+    void loadUserProfile(long id);
+    void saveUserProfile(long id);
 };
 
 #endif
