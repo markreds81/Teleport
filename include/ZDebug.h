@@ -13,6 +13,9 @@
 #define DPRINTF(...)            DebugPort.printf(__VA_ARGS__)
 #define DPRINTLN(...)           DebugPort.println(__VA_ARGS__)
 
+// some libraries still need a 'Serial' object available
+#define Serial                  DebugPort
+
 class ZDebug : public HardwareSerial
 {
 private:

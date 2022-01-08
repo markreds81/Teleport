@@ -16,7 +16,7 @@ ZModem modem(&serial);
 void setup()
 {
 #if DEBUG
-	DebugPort.begin();
+	Serial.begin();
 #endif
 
 	configTime(GMT_OFFSET_SEC, DST_OFFSET_SEC, NTP_SERVER);

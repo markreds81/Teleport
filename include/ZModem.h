@@ -7,8 +7,11 @@
 #include "ZClient.h"
 #include "ZSettings.h"
 #include "ZPhonebook.h"
+#include "ZUpdater.h"
 #include <Arduino.h>
 #include <LinkedList.h>
+#include <WebServer.h>
+#include <ESPmDNS.h>
 
 #define MAX_COMMAND_SIZE 256
 
@@ -29,6 +32,8 @@ private:
 	ZSettings settings;
 	ZPhonebook phonebook;
 	LinkedList<ZClient *> clients;
+	WebServer httpServer;
+	ZUpdater httpUpdater;
 	uint8_t buffer[MAX_COMMAND_SIZE];
 	size_t buflen;
 	char CRLF[4];

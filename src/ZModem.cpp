@@ -91,13 +91,14 @@ ZModem::ZModem(ZSerial *s) : serial(s)
 	BS = ASCII_BS;
 	EC = '+';
 	termType = DEFAULT_TERMTYPE;
-	lastCommand = "";
+	lastCommand = emptyString;
 	strcpy(CRLF, "\r\n");
 	strcpy(LFCR, "\n\r");
 	strcpy(LF, "\n");
 	strcpy(CR, "\r");
 	memset(ECS, EC, 3);
 	memset(&esc, 0, sizeof(esc));
+
 }
 
 ZModem::~ZModem()
@@ -238,11 +239,15 @@ void ZModem::setStaticIPs(IPAddress *ip, IPAddress *dns, IPAddress *gateway, IPA
 
 bool ZModem::connectWiFi(const char *ssid, const char *pswd, IPAddress *ip, IPAddress *dns, IPAddress *gateway, IPAddress *subnet)
 {
-	while (WiFi.status() == WL_CONNECTED)
+	if (WiFi.status() == WL_CONNECTED)
 	{
-		WiFi.disconnect();
-		delay(100);
-		yield();
+		MDNS.end();	
+		httpServer.stop();
+		while (WiFi.status() == WL_CONNECTED)
+		{		
+			WiFi.disconnect();
+			delay(100);
+		}
 	}
 	digitalWrite(PIN_LED_WIFI, LOW);
 	WiFi.mode(WIFI_STA);
@@ -261,10 +266,16 @@ bool ZModem::connectWiFi(const char *ssid, const char *pswd, IPAddress *ip, IPAd
 		if (WiFi.status() == WL_CONNECTED && strcmp(WiFi.localIP().toString().c_str(), "0.0.0.0") != 0)
 		{
 			DPRINTLN("OK");
+			httpServer.begin(80);
 			if (settings.hostname.length() > 0)
 			{
-				tcpip_adapter_set_hostname(TCPIP_ADAPTER_IF_STA, settings.hostname.c_str());
 				WiFi.hostname(settings.hostname);
+				if (MDNS.begin(settings.hostname.c_str()))
+				{
+					DPRINTLN("mDNS responder started");
+					MDNS.addService("http", "tcp", 80);
+					DPRINTF("HTTPUpdateServer available at http://%s.local/update in your browser\n", settings.hostname.c_str());
+				}
 			}
 			digitalWrite(PIN_LED_WIFI, HIGH);
 			return true;
@@ -1624,6 +1635,8 @@ void ZModem::begin()
 	DPRINTF("COM port open at %d bit/s\n", settings.baudRate);
 	digitalWrite(PIN_LED_HS, settings.baudRate >= DEFAULT_HS_RATE ? HIGH : LOW);
 
+	httpUpdater.setup(&httpServer);
+
 	if (settings.wifiSSID.length() > 0)
 	{
 		connectWiFi(settings.wifiSSID.c_str(), settings.wifiPSWD.c_str(), staticIP, staticDNS, staticGW, staticSN);
@@ -1634,6 +1647,8 @@ void ZModem::begin()
 
 void ZModem::tick()
 {
+	httpServer.handleClient();
+
 	switch (mode)
 	{
 	case ZCOMMAND_MODE:
