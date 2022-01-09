@@ -98,7 +98,6 @@ ZModem::ZModem(ZSerial *s) : serial(s)
 	strcpy(CR, "\r");
 	memset(ECS, EC, 3);
 	memset(&esc, 0, sizeof(esc));
-
 }
 
 ZModem::~ZModem()
@@ -760,7 +759,14 @@ ZResult ZModem::execCommand()
 				DPRINTLN("s");
 				break;
 			case '+':
-				DPRINTLN("+");
+				for (int i = 0; vbuf[i] != 0; i++)
+					vbuf[i] = lc(vbuf[i]);
+				if (strcmp((const char *)vbuf, "config") == 0)
+					switchTo(ZCONFIG_MODE);
+				else if (strcmp((const char *)vbuf, "shell") == 0)
+					switchTo(ZSHELL_MODE);
+				else
+					rc = ZERROR;
 				break;
 			case '$':
 			{
@@ -1477,6 +1483,9 @@ void ZModem::switchTo(ZMode newMode, ZResult rc)
 	case ZPRINT_MODE:
 		DPRINTF("Switch to %s mode\n", "PRINT");
 		break;
+	case ZSHELL_MODE:
+		DPRINTF("Switch to %s mode\n", "SHELL");
+		break;
 	}
 
 	if (rc != ZIGNORE)
@@ -1575,6 +1584,26 @@ void ZModem::printModeHandler()
 {
 }
 
+void ZModem::shellModeHandler()
+{
+	if (serial->available() > 0)
+	{
+		bool crReceived = readSerialStream();
+		if (crReceived && buflen != 0)
+		{
+			String line = (char *)buffer;
+			line.trim();
+			if (!shell.exec(line))
+			{
+				mode = ZCOMMAND_MODE;
+			}
+			buffer[0] = '\0';
+			buflen = 0;			
+		}
+	}
+	shell.tick();
+}
+
 void ZModem::factoryReset()
 {
 	DPRINTLN("Factory Reset!");
@@ -1662,6 +1691,9 @@ void ZModem::tick()
 		break;
 	case ZPRINT_MODE:
 		printModeHandler();
+		break;
+	case ZSHELL_MODE:
+		shellModeHandler();
 		break;
 	}
 }

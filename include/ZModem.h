@@ -8,6 +8,7 @@
 #include "ZSettings.h"
 #include "ZPhonebook.h"
 #include "ZUpdater.h"
+#include "ZShell.h"
 #include <Arduino.h>
 #include <LinkedList.h>
 #include <WebServer.h>
@@ -31,6 +32,7 @@ private:
 	ZClient *socket;
 	ZSettings settings;
 	ZPhonebook phonebook;
+	ZShell shell;
 	LinkedList<ZClient *> clients;
 	WebServer httpServer;
 	ZUpdater httpUpdater;
@@ -82,6 +84,7 @@ private:
 	void configModeHandler();
 	void streamModeHandler();
 	void printModeHandler();
+	void shellModeHandler();
 
 public:
 	ZModem(ZSerial *s);
