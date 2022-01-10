@@ -36,4 +36,6 @@ public:
     void saveUserProfile(long id);
 };
 
+extern ZSettings Settings;
+
 #endif

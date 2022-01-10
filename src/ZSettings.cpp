@@ -3,6 +3,8 @@
 #include "ZBase64.h"
 #include "z/options.h"
 
+ZSettings Settings;     // default instance
+
 IPAddress *ZSettings::parseIP(const char *str)
 {
     uint8_t dots[4];

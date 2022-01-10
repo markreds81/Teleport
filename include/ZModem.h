@@ -5,7 +5,6 @@
 #include "z/types.h"
 #include "ZSerial.h"
 #include "ZClient.h"
-#include "ZSettings.h"
 #include "ZPhonebook.h"
 #include "ZUpdater.h"
 #include "ZShell.h"
@@ -28,9 +27,7 @@ private:
 
 	ZMode mode;
 	ZEscape esc;
-	ZSerial *serial;
 	ZClient *socket;
-	ZSettings settings;
 	ZPhonebook phonebook;
 	ZShell shell;
 	LinkedList<ZClient *> clients;
@@ -87,7 +84,7 @@ private:
 	void shellModeHandler();
 
 public:
-	ZModem(ZSerial *s);
+	ZModem();
 	virtual ~ZModem();
 
 	void factoryReset();
@@ -100,30 +97,30 @@ public:
 		return socket != nullptr && socket->connected();
 	}
 
-	inline int serialAvailable()
-	{
-		return serial->available();
-	}
+	// inline int serialAvailable()
+	// {
+	// 	return serial->available();
+	// }
 
-	inline int serialAvailableForWrite()
-	{
-		return serial->availableForWrite();
-	}
+	// inline int serialAvailableForWrite()
+	// {
+	// 	return serial->availableForWrite();
+	// }
 
-	inline int serialRead()
-	{
-		return serial->read();
-	}
+	// inline int serialRead()
+	// {
+	// 	return serial->read();
+	// }
 
-	inline size_t serialWrite(uint8_t c)
-	{
-		return serial->write(c);
-	}
+	// inline size_t serialWrite(uint8_t c)
+	// {
+	// 	return serial->write(c);
+	// }
 
-	inline size_t serialWrite(const uint8_t *buf, size_t size)
-	{
-		return serial->write(buf, size);
-	}
+	// inline size_t serialWrite(const uint8_t *buf, size_t size)
+	// {
+	// 	return serial->write(buf, size);
+	// }
 
 	inline int socketAvailable()
 	{

@@ -5,29 +5,21 @@
 
 #if DEBUG
 
-#define NO_GLOBAL_SERIAL
+#include <HardwareSerial.h>
 
-#include <Arduino.h>
-
-#define DPRINT(...)             DebugPort.print(__VA_ARGS__)
-#define DPRINTF(...)            DebugPort.printf(__VA_ARGS__)
-#define DPRINTLN(...)           DebugPort.println(__VA_ARGS__)
-
-// some libraries still need a 'Serial' object available
-#define Serial                  DebugPort
+#define DPRINT(...)             Serial.print(__VA_ARGS__)
+#define DPRINTF(...)            Serial.printf(__VA_ARGS__)
+#define DPRINTLN(...)           Serial.println(__VA_ARGS__)
 
 class ZDebug : public HardwareSerial
 {
-private:
-    typedef HardwareSerial Base;
 public:
-    ZDebug(int uart_nr);
-    ~ZDebug();
+    using HardwareSerial::HardwareSerial;   // Inheriting constructors
 
     void begin();
 };
 
-extern ZDebug DebugPort;
+extern ZDebug Serial;
 
 #else
 

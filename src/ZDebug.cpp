@@ -2,17 +2,15 @@
 
 #if DEBUG
 
-ZDebug::ZDebug(int uart_nr) : HardwareSerial(uart_nr) {}
+#include "driver/uart.h"
 
-ZDebug::~ZDebug() {}
+ZDebug Serial(UART_NUM_0);        // global instance
 
 void ZDebug::begin()
 {
-    Base::begin(115200);
-    Base::setDebugOutput(true);
-    Base::println("Debug port open and ready.");
+    HardwareSerial::begin(115200);
+    HardwareSerial::setDebugOutput(true);
+    HardwareSerial::println("Debug port open and ready.");
 }
-
-ZDebug DebugPort(0);
 
 #endif
