@@ -5,7 +5,6 @@
 #include "ZSettings.h"
 #include <WiFi.h>
 #include <SPIFFS.h>
-#include <SD.h>
 
 #define TELNET_BINARY 0
 #define TELNET_ECHO 1
@@ -242,10 +241,10 @@ bool ZModem::connectWiFi(const char *ssid, const char *pswd, IPAddress *ip, IPAd
 {
 	if (WiFi.status() == WL_CONNECTED)
 	{
-		MDNS.end();	
+		MDNS.end();
 		httpServer.stop();
 		while (WiFi.status() == WL_CONNECTED)
-		{		
+		{
 			WiFi.disconnect();
 			delay(100);
 		}
@@ -353,7 +352,7 @@ bool ZModem::readSerialStream()
 			}
 		}
 	}
-	return crReceived;
+	return crReceived && buflen > 0;
 }
 
 void ZModem::showInitMessage()
@@ -1471,6 +1470,21 @@ ZResult ZModem::execPhonebook(unsigned long vval, uint8_t *vbuf, int vlen, bool 
 
 void ZModem::switchTo(ZMode newMode, ZResult rc)
 {
+	switch (mode)
+	{
+	case ZCOMMAND_MODE:
+		break;
+	case ZCONFIG_MODE:
+		break;
+	case ZSTREAM_MODE:
+		break;
+	case ZPRINT_MODE:
+		break;
+	case ZSHELL_MODE:
+		shell.end();
+		break;
+	}
+
 	switch (newMode)
 	{
 	case ZCOMMAND_MODE:
@@ -1487,6 +1501,7 @@ void ZModem::switchTo(ZMode newMode, ZResult rc)
 		break;
 	case ZSHELL_MODE:
 		DPRINTF("Switch to %s mode\n", "SHELL");
+		shell.begin();
 		break;
 	}
 
@@ -1502,16 +1517,12 @@ void ZModem::switchTo(ZMode newMode, ZResult rc)
 
 void ZModem::commandModeHandler()
 {
-	if (Serial2.available() > 0)
+	if (Serial2.available() > 0 && readSerialStream())
 	{
-		bool crReceived = readSerialStream();
-		if (crReceived && buflen != 0)
+		ZResult rc = execCommand();
+		if (!Settings.suppressResponses)
 		{
-			ZResult rc = execCommand();
-			if (!Settings.suppressResponses)
-			{
-				sendResponse(rc);
-			}
+			sendResponse(rc);
 		}
 	}
 }
@@ -1577,7 +1588,7 @@ void ZModem::streamModeHandler()
 				break;
 			}
 		}
-		
+
 		switchTo(ZCOMMAND_MODE, ZNOCARRIER);
 	}
 }
@@ -1588,22 +1599,18 @@ void ZModem::printModeHandler()
 
 void ZModem::shellModeHandler()
 {
-	if (Serial2.available() > 0)
+	if (Serial2.available() > 0 && readSerialStream())
 	{
-		bool crReceived = readSerialStream();
-		if (crReceived && buflen != 0)
-		{
-			String line = (char *)buffer;
-			line.trim();
-			if (!shell.exec(line))
-			{
-				switchTo(ZCOMMAND_MODE, ZOK);
-			}
-			buffer[0] = '\0';
-			buflen = 0;			
-		}
+		String line = (char *)buffer;
+		line.trim();
+		shell.exec(line);
+		buffer[0] = '\0';
+		buflen = 0;
 	}
-	shell.tick();
+	if (shell.done())
+	{
+		switchTo(ZCOMMAND_MODE, ZOK);
+	}
 }
 
 void ZModem::factoryReset()
@@ -1659,15 +1666,6 @@ void ZModem::begin()
 	{
 		Settings.loadUserProfile(0);
 		phonebook.begin();
-	}
-
-	if (SD.begin())
-	{
-		DPRINTLN("SD Card mounted");
-	}
-	else
-	{
-		DPRINTLN("SD Card failed");
 	}
 
 	Serial2.begin(Settings.baudRate, DEFAULT_SERIAL_CONFIG);

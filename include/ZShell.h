@@ -3,17 +3,22 @@
 
 #include <Arduino.h>
 
+#define ZSHELL_SHOW_PROMPT  0x01
+#define ZSHELL_DONE         0x02
+
 class ZShell
 {
 public:
     ZShell();
     virtual ~ZShell();
 
-	bool exec(String line);
-	void tick();
+	void begin();
+    void end();
+    void exec(String line);
+    bool done();
 private:
     String path;
-    bool showPrompt;
+    uint8_t state;
 
     bool isMask(String mask);
     bool matches(String fname, String mask);

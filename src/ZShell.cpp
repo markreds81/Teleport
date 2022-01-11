@@ -6,7 +6,6 @@
 
 ZShell::ZShell()
 {
-	showPrompt = true;
 	path = "/";
 }
 
@@ -14,7 +13,30 @@ ZShell::~ZShell()
 {
 }
 
-bool ZShell::exec(String line)
+void ZShell::begin()
+{
+	if (!SD.begin())
+	{
+		DPRINTF("SD Card %s\n", "init fails");
+	}
+	else if (SD.cardType() == CARD_NONE)
+	{
+		DPRINTF("SD Card %s\n", "not present");
+	}
+	else
+	{
+		DPRINTF("SD Card %s\n", "mounted");
+	}
+	
+	state = ZSHELL_SHOW_PROMPT;
+}
+
+void ZShell::end()
+{
+	SD.end();
+}
+
+void ZShell::exec(String line)
 {
 	for (int i = 0; i < line.length(); i++)
 	{
@@ -35,279 +57,279 @@ bool ZShell::exec(String line)
 		line = emptyString;
 	}
 
-	if (!cmd.length())
+	Serial2.print(Settings.EOLN);
+
+	if (cmd.length())
 	{
-		showPrompt = true;
-	}
-	else if (cmd.equalsIgnoreCase("exit") || cmd.equalsIgnoreCase("quit") || cmd.equalsIgnoreCase("x") || cmd.equalsIgnoreCase("endshell"))
-	{
-		return true;
-	}
-	else if (cmd.equalsIgnoreCase("ls") || cmd.equalsIgnoreCase("dir") || cmd.equalsIgnoreCase("$") || cmd.equalsIgnoreCase("list"))
-	{
-		String argLetters = "";
-		line = stripArgs(line, argLetters);
-		argLetters.toLowerCase();
-		bool recurse = argLetters.indexOf('r') >= 0;
-		String rawPath = makePath(cleanOneArg(line));
-		String p;
-		String mask;
-		if ((line.length() == 0) || (line.endsWith("/")))
+		state |= ZSHELL_SHOW_PROMPT;
+
+		if (cmd.equalsIgnoreCase("exit") || cmd.equalsIgnoreCase("quit") || cmd.equalsIgnoreCase("x") || cmd.equalsIgnoreCase("endshell"))
 		{
-			p = rawPath;
-			mask = "";
+			state |= ZSHELL_DONE;
 		}
-		else
+		else if (cmd.equalsIgnoreCase("ls") || cmd.equalsIgnoreCase("dir") || cmd.equalsIgnoreCase("$") || cmd.equalsIgnoreCase("list"))
 		{
-			mask = stripFilename(rawPath);
-			if ((mask.length() > 0) && (isMask(mask)))
-				p = stripDir(rawPath);
+			String argLetters = "";
+			line = stripArgs(line, argLetters);
+			argLetters.toLowerCase();
+			bool recurse = argLetters.indexOf('r') >= 0;
+			String rawPath = makePath(cleanOneArg(line));
+			String p;
+			String mask;
+			if ((line.length() == 0) || (line.endsWith("/")))
+			{
+				p = rawPath;
+				mask = "";
+			}
 			else
 			{
-				mask = "";
-				p = rawPath;
+				mask = stripFilename(rawPath);
+				if ((mask.length() > 0) && (isMask(mask)))
+					p = stripDir(rawPath);
+				else
+				{
+					mask = "";
+					p = rawPath;
+				}
+			}
+			showDirectory(p, mask, "", recurse);
+		}
+		else if (cmd.equalsIgnoreCase("md") || cmd.equalsIgnoreCase("mkdir") || cmd.equalsIgnoreCase("makedir"))
+		{
+			String p = makePath(cleanOneArg(line));
+			DPRINTF("md:%s\n", p.c_str());
+			if ((p.length() < 2) || isMask(p) || !SD.mkdir(p))
+				Serial2.printf("Illegal path: %s%s", p.c_str(), Settings.EOLN.c_str());
+		}
+		else if (cmd.equalsIgnoreCase("cd"))
+		{
+			String p = makePath(cleanOneArg(line));
+			DPRINTF("cd:%s\n", p.c_str());
+			if (p.length() == 0)
+				Serial2.printf("Current path: %s%s", p.c_str(), Settings.EOLN.c_str());
+			else if (p == "/")
+				path = "/";
+			else if (p.length() > 1)
+			{
+				File root = SD.open(p);
+				if (!root)
+					Serial2.printf("Unknown path: %s%s", p.c_str(), Settings.EOLN.c_str());
+				else if (!root.isDirectory())
+					Serial2.printf("Illegal path: %s%s", p.c_str(), Settings.EOLN.c_str());
+				else
+					path = p + "/";
 			}
 		}
-		showDirectory(p, mask, "", recurse);
-	}
-	else if (cmd.equalsIgnoreCase("md") || cmd.equalsIgnoreCase("mkdir") || cmd.equalsIgnoreCase("makedir"))
-	{
-		String p = makePath(cleanOneArg(line));
-		DPRINTF("md:%s\n", p.c_str());
-		if ((p.length() < 2) || isMask(p) || !SD.mkdir(p))
-			Serial2.printf("Illegal path: %s%s", p.c_str(), Settings.EOLN.c_str());
-	}
-	else if (cmd.equalsIgnoreCase("cd"))
-	{
-		String p = makePath(cleanOneArg(line));
-		DPRINTF("cd:%s\n", p.c_str());
-		if (p.length() == 0)
-			Serial2.printf("Current path: %s%s", p.c_str(), Settings.EOLN.c_str());
-		else if (p == "/")
-			path = "/";
-		else if (p.length() > 1)
+		else if (cmd.equalsIgnoreCase("rd") || cmd.equalsIgnoreCase("rmdir") || cmd.equalsIgnoreCase("deletedir"))
 		{
+			String p = makePath(cleanOneArg(line));
+			DPRINTF("rd:%s\n", p.c_str());
 			File root = SD.open(p);
 			if (!root)
 				Serial2.printf("Unknown path: %s%s", p.c_str(), Settings.EOLN.c_str());
 			else if (!root.isDirectory())
-				Serial2.printf("Illegal path: %s%s", p.c_str(), Settings.EOLN.c_str());
+				Serial2.printf("Not a directory: %s%s", p.c_str(), Settings.EOLN.c_str());
+			else if (!SD.rmdir(p))
+				Serial2.printf("Failed to remove directory: %s%s", p.c_str(), Settings.EOLN.c_str());
+		}
+		else if (cmd.equalsIgnoreCase("cat") || cmd.equalsIgnoreCase("type"))
+		{
+			String p = makePath(cleanOneArg(line));
+			DPRINTF("cat:%s\n", p.c_str());
+			File root = SD.open(p);
+			if (!root)
+				Serial2.printf("Unknown path: %s%s", p.c_str(), Settings.EOLN.c_str());
+			else if (root.isDirectory())
+				Serial2.printf("Is a directory: %s%s", p.c_str(), Settings.EOLN.c_str());
 			else
-				path = p + "/";
-		}
-	}
-	else if (cmd.equalsIgnoreCase("rd") || cmd.equalsIgnoreCase("rmdir") || cmd.equalsIgnoreCase("deletedir"))
-	{
-		String p = makePath(cleanOneArg(line));
-		DPRINTF("rd:%s\n", p.c_str());
-		File root = SD.open(p);
-		if (!root)
-			Serial2.printf("Unknown path: %s%s", p.c_str(), Settings.EOLN.c_str());
-		else if (!root.isDirectory())
-			Serial2.printf("Not a directory: %s%s", p.c_str(), Settings.EOLN.c_str());
-		else if (!SD.rmdir(p))
-			Serial2.printf("Failed to remove directory: %s%s", p.c_str(), Settings.EOLN.c_str());
-	}
-	else if (cmd.equalsIgnoreCase("cat") || cmd.equalsIgnoreCase("type"))
-	{
-		String p = makePath(cleanOneArg(line));
-		DPRINTF("cat:%s\n", p.c_str());
-		File root = SD.open(p);
-		if (!root)
-			Serial2.printf("Unknown path: %s%s", p.c_str(), Settings.EOLN.c_str());
-		else if (root.isDirectory())
-			Serial2.printf("Is a directory: %s%s", p.c_str(), Settings.EOLN.c_str());
-		else
-		{
-			root.close();
-			File f = SD.open(p, FILE_READ);
-			for (int i = 0; i < f.size(); i++)
-				Serial2.write(f.read());
-			f.close();
-		}
-	}
-	else if (cmd.equalsIgnoreCase("xget"))
-	{
-		DPRINTLN("Not implemented");
-	}
-	else if (cmd.equalsIgnoreCase("xput"))
-	{
-		DPRINTLN("Not implemented");
-	}
-	else if (cmd.equalsIgnoreCase("zget") || cmd.equalsIgnoreCase("rz") || cmd.equalsIgnoreCase("rz.exe"))
-	{
-		DPRINTLN("Not implemented");
-	}
-	else if (cmd.equalsIgnoreCase("zput") || cmd.equalsIgnoreCase("sz"))
-	{
-		DPRINTLN("Not implemented");
-	}
-	else if (cmd.equalsIgnoreCase("kget") || cmd.equalsIgnoreCase("rk"))
-	{
-		DPRINTLN("Not implemented");
-	}
-	else if (cmd.equalsIgnoreCase("kput") || cmd.equalsIgnoreCase("sk"))
-	{
-		DPRINTLN("Not implemented");
-	}
-	else if (cmd.equalsIgnoreCase("rm") || cmd.equalsIgnoreCase("del") || cmd.equalsIgnoreCase("delete"))
-	{
-		String argLetters = "";
-		line = stripArgs(line, argLetters);
-		argLetters.toLowerCase();
-		bool recurse = argLetters.indexOf('r') >= 0;
-		String rawPath = makePath(cleanOneArg(line));
-		String p = stripDir(rawPath);
-		String mask = stripFilename(rawPath);
-		DPRINTF("rm:%s (%s)\n", p.c_str(), mask.c_str());
-		deleteFile(p, mask, recurse);
-	}
-	else if (cmd.equalsIgnoreCase("cp") || cmd.equalsIgnoreCase("copy"))
-	{
-		String argLetters = "";
-		line = stripArgs(line, argLetters);
-		argLetters.toLowerCase();
-		bool recurse = argLetters.indexOf('r') >= 0;
-		bool overwrite = argLetters.indexOf('f') >= 0;
-		String p1 = makePath(cleanFirstArg(line));
-		String p2 = makePath(cleanRemainArg(line));
-		String mask;
-		if ((line.length() == 0) || (line.endsWith("/")))
-			mask = "";
-		else
-		{
-			mask = stripFilename(p1);
-			if (!isMask(mask))
-				mask = "";
-			else
-				p1 = stripDir(p1);
-		}
-		DPRINTF("cp:%s (%s) -> %s\n", p1.c_str(), mask.c_str(), p2.c_str());
-		copyFiles(p1, mask, p2, recurse, overwrite);
-	}
-	else if (cmd.equalsIgnoreCase("df") || cmd.equalsIgnoreCase("free") || cmd.equalsIgnoreCase("info"))
-	{
-		Serial2.printf("%llu free of %llu total%s", (SD.totalBytes() - SD.usedBytes()), SD.totalBytes(), Settings.EOLN.c_str());
-	}
-	else if (cmd.equalsIgnoreCase("ren") || cmd.equalsIgnoreCase("rename"))
-	{
-		String p1 = makePath(cleanFirstArg(line));
-		String p2 = makePath(cleanRemainArg(line));
-		DPRINTF("ren:%s -> %s\n", p1.c_str(), p2.c_str());
-		if (p1 == p2)
-			Serial2.printf("File exists: %s%s", p1.c_str(), Settings.EOLN.c_str());
-		else if (SD.exists(p2))
-			Serial2.printf("File exists: %s%s", p2.c_str(), Settings.EOLN.c_str());
-		else
-		{
-			if (!SD.rename(p1, p2))
-				Serial2.printf("Failed to rename: %s%s", p1.c_str(), Settings.EOLN.c_str());
-		}
-	}
-	else if (cmd.equalsIgnoreCase("wget"))
-	{
-		DPRINTLN("Not implemented");
-	}
-	else if (cmd.equalsIgnoreCase("fget"))
-	{
-		DPRINTLN("Not implemented");
-	}
-	else if (cmd.equalsIgnoreCase("fput"))
-	{
-		DPRINTLN("Not implemented");
-	}
-	else if (cmd.equalsIgnoreCase("fls") || cmd.equalsIgnoreCase("fdir"))
-	{
-		DPRINTLN("Not implemented");
-	}
-	else if (cmd.equalsIgnoreCase("mv") || cmd.equalsIgnoreCase("move"))
-	{
-		String argLetters = "";
-		line = stripArgs(line, argLetters);
-		argLetters.toLowerCase();
-		bool overwrite = argLetters.indexOf('f') >= 0;
-		String p1 = makePath(cleanFirstArg(line));
-		String p2 = makePath(cleanRemainArg(line));
-		String mask;
-		if ((line.length() == 0) || (line.endsWith("/")))
-			mask = "";
-		else
-		{
-			mask = stripFilename(p1);
-			if ((mask.length() > 0) && (isMask(mask)))
-				p1 = stripDir(p1);
-			else
-				mask = "";
-		}
-		DPRINTF("mv:%s(%s) -> %s\n", p1.c_str(), mask.c_str(), p2.c_str());
-		if ((mask.length() == 0) || (!isMask(mask)))
-		{
-			File root = SD.open(p2);
-			if (root && root.isDirectory())
 			{
-				if (!p2.endsWith("/"))
-					p2 += "/";
-				p2 += stripFilename(p1);
-				DPRINTF("mv:%s -> %s\n", p1.c_str(), p2.c_str());
+				root.close();
+				File f = SD.open(p, FILE_READ);
+				for (int i = 0; i < f.size(); i++)
+					Serial2.write(f.read());
+				f.close();
 			}
-			root.close();
+		}
+		else if (cmd.equalsIgnoreCase("xget"))
+		{
+			DPRINTLN("Not implemented");
+		}
+		else if (cmd.equalsIgnoreCase("xput"))
+		{
+			DPRINTLN("Not implemented");
+		}
+		else if (cmd.equalsIgnoreCase("zget") || cmd.equalsIgnoreCase("rz") || cmd.equalsIgnoreCase("rz.exe"))
+		{
+			DPRINTLN("Not implemented");
+		}
+		else if (cmd.equalsIgnoreCase("zput") || cmd.equalsIgnoreCase("sz"))
+		{
+			DPRINTLN("Not implemented");
+		}
+		else if (cmd.equalsIgnoreCase("kget") || cmd.equalsIgnoreCase("rk"))
+		{
+			DPRINTLN("Not implemented");
+		}
+		else if (cmd.equalsIgnoreCase("kput") || cmd.equalsIgnoreCase("sk"))
+		{
+			DPRINTLN("Not implemented");
+		}
+		else if (cmd.equalsIgnoreCase("rm") || cmd.equalsIgnoreCase("del") || cmd.equalsIgnoreCase("delete"))
+		{
+			String argLetters = "";
+			line = stripArgs(line, argLetters);
+			argLetters.toLowerCase();
+			bool recurse = argLetters.indexOf('r') >= 0;
+			String rawPath = makePath(cleanOneArg(line));
+			String p = stripDir(rawPath);
+			String mask = stripFilename(rawPath);
+			DPRINTF("rm:%s (%s)\n", p.c_str(), mask.c_str());
+			deleteFile(p, mask, recurse);
+		}
+		else if (cmd.equalsIgnoreCase("cp") || cmd.equalsIgnoreCase("copy"))
+		{
+			String argLetters = "";
+			line = stripArgs(line, argLetters);
+			argLetters.toLowerCase();
+			bool recurse = argLetters.indexOf('r') >= 0;
+			bool overwrite = argLetters.indexOf('f') >= 0;
+			String p1 = makePath(cleanFirstArg(line));
+			String p2 = makePath(cleanRemainArg(line));
+			String mask;
+			if ((line.length() == 0) || (line.endsWith("/")))
+				mask = "";
+			else
+			{
+				mask = stripFilename(p1);
+				if (!isMask(mask))
+					mask = "";
+				else
+					p1 = stripDir(p1);
+			}
+			DPRINTF("cp:%s (%s) -> %s\n", p1.c_str(), mask.c_str(), p2.c_str());
+			copyFiles(p1, mask, p2, recurse, overwrite);
+		}
+		else if (cmd.equalsIgnoreCase("df") || cmd.equalsIgnoreCase("free") || cmd.equalsIgnoreCase("info"))
+		{
+			Serial2.printf("%llu free of %llu total%s", (SD.totalBytes() - SD.usedBytes()), SD.totalBytes(), Settings.EOLN.c_str());
+		}
+		else if (cmd.equalsIgnoreCase("ren") || cmd.equalsIgnoreCase("rename"))
+		{
+			String p1 = makePath(cleanFirstArg(line));
+			String p2 = makePath(cleanRemainArg(line));
+			DPRINTF("ren:%s -> %s\n", p1.c_str(), p2.c_str());
 			if (p1 == p2)
 				Serial2.printf("File exists: %s%s", p1.c_str(), Settings.EOLN.c_str());
-			else if (SD.exists(p2) && (!overwrite))
+			else if (SD.exists(p2))
 				Serial2.printf("File exists: %s%s", p2.c_str(), Settings.EOLN.c_str());
 			else
 			{
-				if (SD.exists(p2))
-					SD.remove(p2);
 				if (!SD.rename(p1, p2))
-					Serial2.printf("Failed to move: %s%s", p1.c_str(), Settings.EOLN.c_str());
+					Serial2.printf("Failed to rename: %s%s", p1.c_str(), Settings.EOLN.c_str());
 			}
+		}
+		else if (cmd.equalsIgnoreCase("wget"))
+		{
+			DPRINTLN("Not implemented");
+		}
+		else if (cmd.equalsIgnoreCase("fget"))
+		{
+			DPRINTLN("Not implemented");
+		}
+		else if (cmd.equalsIgnoreCase("fput"))
+		{
+			DPRINTLN("Not implemented");
+		}
+		else if (cmd.equalsIgnoreCase("fls") || cmd.equalsIgnoreCase("fdir"))
+		{
+			DPRINTLN("Not implemented");
+		}
+		else if (cmd.equalsIgnoreCase("mv") || cmd.equalsIgnoreCase("move"))
+		{
+			String argLetters = "";
+			line = stripArgs(line, argLetters);
+			argLetters.toLowerCase();
+			bool overwrite = argLetters.indexOf('f') >= 0;
+			String p1 = makePath(cleanFirstArg(line));
+			String p2 = makePath(cleanRemainArg(line));
+			String mask;
+			if ((line.length() == 0) || (line.endsWith("/")))
+				mask = "";
+			else
+			{
+				mask = stripFilename(p1);
+				if ((mask.length() > 0) && (isMask(mask)))
+					p1 = stripDir(p1);
+				else
+					mask = "";
+			}
+			DPRINTF("mv:%s(%s) -> %s\n", p1.c_str(), mask.c_str(), p2.c_str());
+			if ((mask.length() == 0) || (!isMask(mask)))
+			{
+				File root = SD.open(p2);
+				if (root && root.isDirectory())
+				{
+					if (!p2.endsWith("/"))
+						p2 += "/";
+					p2 += stripFilename(p1);
+					DPRINTF("mv:%s -> %s\n", p1.c_str(), p2.c_str());
+				}
+				root.close();
+				if (p1 == p2)
+					Serial2.printf("File exists: %s%s", p1.c_str(), Settings.EOLN.c_str());
+				else if (SD.exists(p2) && (!overwrite))
+					Serial2.printf("File exists: %s%s", p2.c_str(), Settings.EOLN.c_str());
+				else
+				{
+					if (SD.exists(p2))
+						SD.remove(p2);
+					if (!SD.rename(p1, p2))
+						Serial2.printf("Failed to move: %s%s", p1.c_str(), Settings.EOLN.c_str());
+				}
+			}
+			else
+			{
+				copyFiles(p1, mask, p2, false, overwrite);
+				deleteFile(p1, mask, false);
+			}
+		}
+		else if (cmd.equals("?") || cmd.equals("help"))
+		{
+			Serial2.printf("Commands:%s", Settings.EOLN.c_str());
+			Serial2.printf("ls/dir/list/$ [-r] [/][path]                   - List files%s", Settings.EOLN.c_str());
+			Serial2.printf("cd [/][path][..]                               - Change to new directory%s", Settings.EOLN.c_str());
+			Serial2.printf("md/mkdir/makedir [/][path]                     - Create a new directory%s", Settings.EOLN.c_str());
+			Serial2.printf("rd/rmdir/deletedir [/][path]                   - Delete a directory%s", Settings.EOLN.c_str());
+			Serial2.printf("rm/del/delete [-r] [/][path]filename           - Delete a file%s", Settings.EOLN.c_str());
+			Serial2.printf("cp/copy [-r] [-f] [/][path]file [/][path]file  - Copy file(s)%s", Settings.EOLN.c_str());
+			Serial2.printf("ren/rename [/][path]file [/][path]file         - Rename a file%s", Settings.EOLN.c_str());
+			Serial2.printf("mv/move [-f] [/][path]file [/][path]file       - Move file(s)%s", Settings.EOLN.c_str());
+			Serial2.printf("cat/type [/][path]filename                     - View a file(s)%s", Settings.EOLN.c_str());
+			Serial2.printf("df/free/info                                   - Show space remaining%s", Settings.EOLN.c_str());
+			Serial2.printf("xget/zget/kget [/][path]filename               - Download a file%s", Settings.EOLN.c_str());
+			Serial2.printf("xput/zput/kput [/][path]filename               - Upload a file%s", Settings.EOLN.c_str());
+			Serial2.printf("wget [http://url] [/][path]filename            - Download url to file%s", Settings.EOLN.c_str());
+			Serial2.printf("fget [ftp://user:pass@url/file] [/][path]file  - FTP get file%s", Settings.EOLN.c_str());
+			Serial2.printf("fput [/][path]file [ftp://user:pass@url/file]  - FTP put file%s", Settings.EOLN.c_str());
+			Serial2.printf("fdir [ftp://user:pass@url/path]                - ftp url dir%s", Settings.EOLN.c_str());
+			Serial2.printf("exit/quit/x/endshell                           - Quit to command mode%s", Settings.EOLN.c_str());
+			Serial2.printf("%s", Settings.EOLN.c_str());
 		}
 		else
 		{
-			copyFiles(p1, mask, p2, false, overwrite);
-			deleteFile(p1, mask, false);
+			Serial2.printf("Unknown command: '%s'.  Try '?'.%s", cmd.c_str(), Settings.EOLN.c_str());
 		}
 	}
-	else if (cmd.equals("?") || cmd.equals("help"))
-	{
-		Serial2.printf("Commands:%s", Settings.EOLN.c_str());
-		Serial2.printf("ls/dir/list/$ [-r] [/][path]                   - List files%s", Settings.EOLN.c_str());
-		Serial2.printf("cd [/][path][..]                               - Change to new directory%s", Settings.EOLN.c_str());
-		Serial2.printf("md/mkdir/makedir [/][path]                     - Create a new directory%s", Settings.EOLN.c_str());
-		Serial2.printf("rd/rmdir/deletedir [/][path]                   - Delete a directory%s", Settings.EOLN.c_str());
-		Serial2.printf("rm/del/delete [-r] [/][path]filename           - Delete a file%s", Settings.EOLN.c_str());
-		Serial2.printf("cp/copy [-r] [-f] [/][path]file [/][path]file  - Copy file(s)%s", Settings.EOLN.c_str());
-		Serial2.printf("ren/rename [/][path]file [/][path]file         - Rename a file%s", Settings.EOLN.c_str());
-		Serial2.printf("mv/move [-f] [/][path]file [/][path]file       - Move file(s)%s", Settings.EOLN.c_str());
-		Serial2.printf("cat/type [/][path]filename                     - View a file(s)%s", Settings.EOLN.c_str());
-		Serial2.printf("df/free/info                                   - Show space remaining%s", Settings.EOLN.c_str());
-		Serial2.printf("xget/zget/kget [/][path]filename               - Download a file%s", Settings.EOLN.c_str());
-		Serial2.printf("xput/zput/kput [/][path]filename               - Upload a file%s", Settings.EOLN.c_str());
-		Serial2.printf("wget [http://url] [/][path]filename            - Download url to file%s", Settings.EOLN.c_str());
-		Serial2.printf("fget [ftp://user:pass@url/file] [/][path]file  - FTP get file%s", Settings.EOLN.c_str());
-		Serial2.printf("fput [/][path]file [ftp://user:pass@url/file]  - FTP put file%s", Settings.EOLN.c_str());
-		Serial2.printf("fdir [ftp://user:pass@url/path]                - ftp url dir%s", Settings.EOLN.c_str());
-		Serial2.printf("exit/quit/x/endshell                           - Quit to command mode%s", Settings.EOLN.c_str());
-		Serial2.printf("%s", Settings.EOLN.c_str());
-	}
-	else
-	{
-		Serial2.printf("Unknown command: '%s'.  Try '?'.%s", cmd.c_str(), Settings.EOLN.c_str());
-	}
-	
-	showPrompt = true;
-
-	return false;
 }
 
-void ZShell::tick()
+bool ZShell::done()
 {
-	if (showPrompt)
+	if (state & ZSHELL_SHOW_PROMPT)
 	{
-		showPrompt = false;
+		state &= ~ZSHELL_SHOW_PROMPT;
 		Serial2.printf("%s%s> ", Settings.EOLN.c_str(), path.c_str());
 	}
+	return (state & ZSHELL_DONE) == ZSHELL_DONE;
 }
 
 bool ZShell::isMask(String mask)
