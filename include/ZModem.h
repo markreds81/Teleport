@@ -6,8 +6,9 @@
 #include "ZSerial.h"
 #include "ZClient.h"
 #include "ZPhonebook.h"
-#include "ZUpdater.h"
 #include "ZShell.h"
+#include "ZConsole.h"
+#include "ZUpdater.h"
 #include <Arduino.h>
 #include <LinkedList.h>
 #include <WebServer.h>
@@ -30,6 +31,7 @@ private:
 	ZClient *socket;
 	ZPhonebook phonebook;
 	ZShell shell;
+	ZConsole console;
 	LinkedList<ZClient *> clients;
 	WebServer httpServer;
 	ZUpdater httpUpdater;
@@ -78,7 +80,7 @@ private:
 
 	void switchTo(ZMode newMode, ZResult rc = ZIGNORE);
 	void commandModeHandler();
-	void configModeHandler();
+	void consoleModeHandler();
 	void streamModeHandler();
 	void printModeHandler();
 	void shellModeHandler();

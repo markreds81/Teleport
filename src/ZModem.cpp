@@ -762,8 +762,8 @@ ZResult ZModem::execCommand()
 			case '+':
 				for (int i = 0; vbuf[i] != 0; i++)
 					vbuf[i] = lc(vbuf[i]);
-				if (strcmp((const char *)vbuf, "config") == 0)
-					switchTo(ZCONFIG_MODE);
+				if (strcmp((const char *)vbuf, "console") == 0)
+					switchTo(ZCONSOLE_MODE);
 				else if (strcmp((const char *)vbuf, "shell") == 0)
 					switchTo(ZSHELL_MODE);
 				else
@@ -1474,7 +1474,8 @@ void ZModem::switchTo(ZMode newMode, ZResult rc)
 	{
 	case ZCOMMAND_MODE:
 		break;
-	case ZCONFIG_MODE:
+	case ZCONSOLE_MODE:
+		console.end();
 		break;
 	case ZSTREAM_MODE:
 		break;
@@ -1490,8 +1491,9 @@ void ZModem::switchTo(ZMode newMode, ZResult rc)
 	case ZCOMMAND_MODE:
 		DPRINTF("Switch to %s mode\n", "COMMAND");
 		break;
-	case ZCONFIG_MODE:
-		DPRINTF("Switch to %s mode\n", "CONFIG");
+	case ZCONSOLE_MODE:
+		DPRINTF("Switch to %s mode\n", "CONSOLE");
+		console.begin();
 		break;
 	case ZSTREAM_MODE:
 		DPRINTF("Switch to %s mode\n", "STREAM");
@@ -1527,8 +1529,21 @@ void ZModem::commandModeHandler()
 	}
 }
 
-void ZModem::configModeHandler()
+void ZModem::consoleModeHandler()
 {
+	if (Serial2.available() > 0 && readSerialStream())
+	{
+		String line = (char *)buffer;
+		line.trim();
+		DPRINTLN(line);
+		console.exec(line);
+		buffer[0] = '\0';
+		buflen = 0;
+	}
+	if (shell.done())
+	{
+		switchTo(ZCOMMAND_MODE, ZOK);
+	}
 }
 
 void ZModem::streamModeHandler()
@@ -1692,8 +1707,8 @@ void ZModem::tick()
 	case ZCOMMAND_MODE:
 		commandModeHandler();
 		break;
-	case ZCONFIG_MODE:
-		configModeHandler();
+	case ZCONSOLE_MODE:
+		consoleModeHandler();
 		break;
 	case ZSTREAM_MODE:
 		streamModeHandler();

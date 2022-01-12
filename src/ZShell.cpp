@@ -65,7 +65,7 @@ void ZShell::exec(String line)
 
 		if (cmd.equalsIgnoreCase("exit") || cmd.equalsIgnoreCase("quit") || cmd.equalsIgnoreCase("x") || cmd.equalsIgnoreCase("endshell"))
 		{
-			state |= ZSHELL_DONE;
+			state = ZSHELL_DONE;
 		}
 		else if (cmd.equalsIgnoreCase("ls") || cmd.equalsIgnoreCase("dir") || cmd.equalsIgnoreCase("$") || cmd.equalsIgnoreCase("list"))
 		{
