@@ -26,6 +26,7 @@ public:
     virtual ~ZPhonebook();
 
     inline int size() { return toc.size(); }
+    inline bool empty() { return toc.size() == 0; }
     int indexOf(unsigned long number);
 
     void begin();
@@ -35,5 +36,7 @@ public:
     bool put(unsigned long number, const char *address, const char *modifiers, const char *notes);
     void remove(int index);
 };
+
+extern ZPhonebook Phonebook;
 
 #endif

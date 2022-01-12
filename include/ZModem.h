@@ -5,7 +5,6 @@
 #include "z/types.h"
 #include "ZSerial.h"
 #include "ZClient.h"
-#include "ZPhonebook.h"
 #include "ZShell.h"
 #include "ZConsole.h"
 #include "ZUpdater.h"
@@ -29,7 +28,6 @@ private:
 	ZMode mode;
 	ZEscape esc;
 	ZClient *socket;
-	ZPhonebook phonebook;
 	ZShell shell;
 	ZConsole console;
 	LinkedList<ZClient *> clients;

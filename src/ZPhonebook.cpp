@@ -3,6 +3,8 @@
 #include "string.h"
 #include <SPIFFS.h>
 
+ZPhonebook Phonebook;
+
 bool ZPhonebook::checkEntry(char *cmd)
 {
     bool error = false;

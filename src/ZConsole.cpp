@@ -2,6 +2,7 @@
 #include "ZSerial.h"
 #include "ZDebug.h"
 #include "ZSettings.h"
+#include "ZPhonebook.h"
 #include <WiFi.h>
 
 ZConsole::ZConsole()
@@ -95,6 +96,20 @@ bool ZConsole::done()
 			// serial.printf("[BBS] host: %s%s",bbsMode.c_str(),EOLNC);
 			// Serial2.printf("[PETSCII] translation: %s%s", Serial2.isPetsciiMode()?"ON":"OFF", Settings.EOLN.c_str());
 			Serial2.printf("[ADD] new phonebook entry%s", Settings.EOLN.c_str());
+			if (!Phonebook.empty())
+			{
+				PBEntry pbe;
+				Serial2.printf("Phonebook entries:%s", Settings.EOLN.c_str());
+				for (int i = 0; i < Phonebook.size(); i++)
+				{
+					Phonebook.get(i, &pbe);
+					if (strlen(pbe.notes))
+						Serial2.printf("  [%lu] %s (%s)%s", pbe.number, pbe.address, pbe.notes, Settings.EOLN.c_str());
+					else
+						Serial2.printf("  [%lu] %s%s", pbe.number, pbe.address, Settings.EOLN.c_str());
+				}
+			}
+			Serial2.printf("%sEnter command or entry or ENTER to exit: ", Settings.EOLN.c_str());
 			break;
 		default:
 			DPRINTF("Show menu: %d\n", menu);

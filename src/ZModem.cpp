@@ -3,6 +3,7 @@
 #include "ZSerial.h"
 #include "ZClient.h"
 #include "ZSettings.h"
+#include "ZPhonebook.h"
 #include <WiFi.h>
 #include <SPIFFS.h>
 
@@ -1199,11 +1200,11 @@ ZResult ZModem::execDial(unsigned long vval, uint8_t *vbuf, int vlen, bool isNum
 	else if (vval >= 0 && isNumber)
 	{
 		DPRINTF("Phonebook entry #%lu\n", vval);
-		int i = phonebook.indexOf(vval);
+		int i = Phonebook.indexOf(vval);
 		if (i >= 0)
 		{
 			PBEntry pbe;
-			phonebook.get(i, &pbe);
+			Phonebook.get(i, &pbe);
 			return execDial(0, (uint8_t *)pbe.address, strlen(pbe.address), false, pbe.modifiers);
 		}
 		for (i = 0; i < clients.size(); i++)
@@ -1407,9 +1408,9 @@ ZResult ZModem::execPhonebook(unsigned long vval, uint8_t *vbuf, int vlen, bool 
 	if (vlen == 0 || isNumber || (vlen == 1 && *vbuf == '?'))
 	{
 		PBEntry pbe;
-		for (int i = 0; i < phonebook.size(); i++)
+		for (int i = 0; i < Phonebook.size(); i++)
 		{
-			if (phonebook.get(i, &pbe) && (!isNumber || vval == 0 || vval == pbe.number) && (strlen(dmodifiers) == 0 || modifierCompare(dmodifiers, pbe.modifiers) == 0))
+			if (Phonebook.get(i, &pbe) && (!isNumber || vval == 0 || vval == pbe.number) && (strlen(dmodifiers) == 0 || modifierCompare(dmodifiers, pbe.modifiers) == 0))
 			{
 				Serial2.print(Settings.EOLN);
 				size_t off = Serial2.print(pbe.number);
@@ -1443,12 +1444,12 @@ ZResult ZModem::execPhonebook(unsigned long vval, uint8_t *vbuf, int vlen, bool 
 	if (strlen((char *)vbuf) > 9)
 		return ZERROR;
 	unsigned long number = atol((char *)vbuf);
-	int i = phonebook.indexOf(number);
+	int i = Phonebook.indexOf(number);
 	if (strcmp("delete", rest) == 0 || strcmp("DELETE", rest) == 0)
 	{
 		if (i < 0)
 			return ZERROR;
-		phonebook.remove(i);
+		Phonebook.remove(i);
 		return ZOK;
 	}
 	char *colon = strchr(rest, ':');
@@ -1462,9 +1463,9 @@ ZResult ZModem::execPhonebook(unsigned long vval, uint8_t *vbuf, int vlen, bool 
 		notes = comma + 1;
 		DPRINTLN(notes);
 	}
-	if (!ZPhonebook::checkEntry(colon))
+	if (!Phonebook.checkEntry(colon))
 		return ZERROR;
-	phonebook.put(number, rest, dmodifiers, notes);
+	Phonebook.put(number, rest, dmodifiers, notes);
 	return ZOK;
 }
 
@@ -1540,7 +1541,7 @@ void ZModem::consoleModeHandler()
 		buffer[0] = '\0';
 		buflen = 0;
 	}
-	if (shell.done())
+	if (console.done())
 	{
 		switchTo(ZCOMMAND_MODE, ZOK);
 	}
@@ -1680,7 +1681,7 @@ void ZModem::begin()
 	else
 	{
 		Settings.loadUserProfile(0);
-		phonebook.begin();
+		Phonebook.begin();
 	}
 
 	Serial2.begin(Settings.baudRate, DEFAULT_SERIAL_CONFIG);
