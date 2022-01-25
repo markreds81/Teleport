@@ -48,6 +48,10 @@ private:
 	IPAddress *staticDNS = nullptr;
 	IPAddress *staticGW = nullptr;
 	IPAddress *staticSN = nullptr;
+	unsigned long bytesTxTotal = 0;
+	unsigned long bytesRxTotal = 0;
+	unsigned long bytesTxPerSec = 0;
+	unsigned long bytesRxPerSec = 0;
 
 	char lc(char c);
 	bool asc2pet(char *c);

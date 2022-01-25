@@ -1010,6 +1010,16 @@ ZResult ZModem::execInfo(int vval, uint8_t *vbuf, int vlen, bool isNumber)
 		Serial2.print(Settings.EOLN);
 		Serial2.print(ESP.getFreeHeap());
 		break;
+	case 12:
+		Serial2.print(Settings.EOLN);
+		Serial2.printf("Total bytes Tx: %lu", bytesTxTotal);
+		Serial2.print(Settings.EOLN);
+		Serial2.printf("Total bytes Rx: %lu", bytesRxTotal);
+		Serial2.print(Settings.EOLN);
+		Serial2.printf("Tx rate: %lu/sec", bytesTxPerSec);
+		Serial2.print(Settings.EOLN);
+		Serial2.printf("Rx rate: %lu/sec", bytesRxPerSec);
+		break;
 	default:
 		Serial2.print(Settings.EOLN);
 		return ZERROR;
@@ -1549,10 +1559,14 @@ void ZModem::consoleModeHandler()
 
 void ZModem::streamModeHandler()
 {
+	static unsigned long resetTxMillis = millis();
+	static unsigned long resetRxMillis = millis();
+
 	if (socket != nullptr && socket->connected())
 	{
 		while (Serial2.available() > 0)
 		{
+			// bridge data from DTE to network
 			char c = Serial2.read();
 			if (c != EC || (millis() - esc.gt1) < 1000 || esc.len >= sizeof(esc.buf))
 			{
@@ -1573,14 +1587,29 @@ void ZModem::streamModeHandler()
 					esc.gt2 = millis();
 				}
 			}
+			// Tx stats
+			bytesTxTotal++;
+			if ((millis() - resetTxMillis) < 1000)
+			{
+				bytesTxPerSec++;
+			}
+			else
+			{
+				bytesTxPerSec = 0;
+				resetTxMillis = millis();
+			}
+			// if there are incoming data from network break
+			if (socket->available() > 0)
+				break;
 		}
+		// check escape sequence
 		if (esc.gt2 && (millis() - esc.gt2) > 1000)
 		{
 			esc.gt2 = 0;
 			esc.len = 0;
 			switchTo(ZCOMMAND_MODE, ZOK);
 		}
-
+		// bridge data from network to DTE
 		if (socket->available() > 0)
 		{
 			int free = Serial2.availableForWrite();
@@ -1589,6 +1618,20 @@ void ZModem::streamModeHandler()
 				char c = socket->read();
 				if ((!socket->telnetMode() || processIAC(&c)) && (!socket->petsciiMode() || asc2pet(&c)))
 					Serial2.write(c);
+				// RX stats
+				bytesRxTotal++;
+				if ((millis() - resetRxMillis) < 1000)
+				{
+					resetRxMillis++;
+				}
+				else
+				{
+					resetRxMillis = 0;
+					resetRxMillis = millis();
+				}
+				// if there are incoming data from DTE break
+				if (Serial2.available() > 0)
+					break;
 			}
 		}
 	}
