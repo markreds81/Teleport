@@ -8,6 +8,8 @@
 #include "ZShell.h"
 #include "ZConsole.h"
 #include "ZUpdater.h"
+#include "ZSettings.h"
+#include "ZDebug.h"
 #include <Arduino.h>
 #include <LinkedList.h>
 #include <WebServer.h>
@@ -48,10 +50,10 @@ private:
 	IPAddress *staticDNS = nullptr;
 	IPAddress *staticGW = nullptr;
 	IPAddress *staticSN = nullptr;
-	unsigned long bytesTxTotal = 0;
-	unsigned long bytesRxTotal = 0;
-	unsigned long bytesTxPerSec = 0;
-	unsigned long bytesRxPerSec = 0;
+	unsigned long totalBytesTx = 0;
+	unsigned long totalBytesRx = 0;
+	unsigned long maxRateTx = 0;
+	unsigned long maxRateRx = 0;
 
 	char lc(char c);
 	bool asc2pet(char *c);
@@ -81,11 +83,6 @@ private:
 	ZResult execPhonebook(unsigned long vval, uint8_t *vbuf, int vlen, bool isNumber, const char *dmodifiers);
 
 	void switchTo(ZMode newMode, ZResult rc = ZIGNORE);
-	void commandModeHandler();
-	void consoleModeHandler();
-	void streamModeHandler();
-	void printModeHandler();
-	void shellModeHandler();
 
 public:
 	ZModem();
@@ -94,11 +91,146 @@ public:
 	void factoryReset();
 	void disconnect();
 	void begin();
-	void tick();
 
 	inline bool connected()
 	{
 		return socket != nullptr && socket->connected();
+	}
+
+	inline void tick()
+	{
+		static unsigned long rateTimer = millis();
+		static unsigned long counterTx = 0;
+		static unsigned long counterRx = 0;
+
+		switch (mode)
+		{
+		case ZCOMMAND_MODE:
+			if (Serial2.available() > 0 && readSerialStream())
+			{
+				ZResult rc = execCommand();
+				if (!Settings.suppressResponses)
+				{
+					sendResponse(rc);
+				}
+			}
+			break;
+		case ZCONSOLE_MODE:
+			if (Serial2.available() > 0 && readSerialStream())
+			{
+				String line = (char *)buffer;
+				line.trim();
+				DPRINTLN(line);
+				console.exec(line);
+				buffer[0] = '\0';
+				buflen = 0;
+			}
+			if (console.done())
+			{
+				switchTo(ZCOMMAND_MODE, ZOK);
+			}
+			break;
+		case ZSTREAM_MODE:
+			if (socket != nullptr && socket->connected())
+			{
+				// bridge data from DTE to network
+				while (Serial2.available() > 0)
+				{
+					// Tx stats
+					totalBytesTx++;
+					// read a char at time and process
+					char c = Serial2.read();
+					if (c != EC || (millis() - esc.gt1) < 1000 || esc.len >= sizeof(esc.buf))
+					{
+						if (esc.len)
+						{
+							socketWrite(esc.buf, esc.len);
+							esc.len = 0;
+							esc.gt2 = 0;
+						}
+						socketWrite(c);
+						esc.gt1 = millis();
+					}
+					else
+					{
+						esc.buf[esc.len++] = c;
+						if (esc.len >= 3)
+						{
+							esc.gt2 = millis();
+						}
+					}
+				}
+				// check escape sequence
+				if (esc.gt2 && (millis() - esc.gt2) > 1000)
+				{
+					esc.gt2 = 0;
+					esc.len = 0;
+					switchTo(ZCOMMAND_MODE, ZOK);
+				}
+				// bridge data from network to DTE
+				while (socket->available() > 0 && Serial2.availableForWrite() > 0)
+				{
+					// RX stats
+					totalBytesRx++;
+					// read char and process
+					char c = socket->read();
+					if ((!socket->telnetMode() || processIAC(&c)) && (!socket->petsciiMode() || asc2pet(&c)))
+						Serial2.write(c);
+					// if incoming data from serial interrupt for process them
+					if (Serial2.available() > 0)
+						break;
+				}
+				// update trasnfer rates
+				if ((millis() - rateTimer) > 1000)
+				{
+					unsigned long rate;
+					rate = totalBytesTx - counterTx;
+					if (rate > maxRateTx)
+						maxRateTx = rate;
+					rate = totalBytesRx - counterRx;
+					if (rate > maxRateRx)
+						maxRateRx = rate;
+					counterTx = totalBytesTx;
+					counterRx = totalBytesRx;
+					rateTimer = millis();
+				}
+			}
+			else
+			{
+				// clean up resources
+				for (int i = 0; i < clients.size(); i++)
+				{
+					if (clients.get(i) == socket)
+					{
+						clients.remove(i);
+						delete socket;
+						socket = nullptr;
+						break;
+					}
+				}
+				// return to command mode
+				switchTo(ZCOMMAND_MODE, ZNOCARRIER);
+			}
+			break;
+		case ZPRINT_MODE:
+			break;
+		case ZSHELL_MODE:
+			if (Serial2.available() > 0 && readSerialStream())
+			{
+				String line = (char *)buffer;
+				line.trim();
+				shell.exec(line);
+				buffer[0] = '\0';
+				buflen = 0;
+			}
+			if (shell.done())
+			{
+				switchTo(ZCOMMAND_MODE, ZOK);
+			}
+			break;
+		}
+
+		httpServer.handleClient();
 	}
 
 	// inline int serialAvailable()

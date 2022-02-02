@@ -1,8 +1,6 @@
 #ifndef ZOPTIONS_H
 #define ZOPTIONS_H
 
-#define ZMODEM_VERSION "1.0.1"
-
 #define PIN_FACTORY_RESET GPIO_NUM_0
 #define PIN_LED_HS GPIO_NUM_2
 #define PIN_LED_WIFI GPIO_NUM_22

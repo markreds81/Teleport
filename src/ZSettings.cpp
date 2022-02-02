@@ -1,7 +1,7 @@
 #include "ZSettings.h"
 #include "ZDebug.h"
 #include "ZBase64.h"
-#include "z/options.h"
+#include "z/version.h"
 
 ZSettings Settings;     // default instance
 

@@ -1,9 +1,6 @@
 #include "ZModem.h"
-#include "ZDebug.h"
-#include "ZSerial.h"
-#include "ZClient.h"
-#include "ZSettings.h"
 #include "ZPhonebook.h"
+#include "z/version.h"
 #include <WiFi.h>
 #include <SPIFFS.h>
 
@@ -359,8 +356,7 @@ bool ZModem::readSerialStream()
 void ZModem::showInitMessage()
 {
 	Serial2.print(Settings.EOLN);
-	Serial2.print("ZModem Firmware v");
-	Serial2.print(ZMODEM_VERSION);
+	Serial2.printf("%s Firmware v%s (%s)", ZMODEM_APPNAME, ZMODEM_VERSION, ZMODEM_CODENAME);
 	Serial2.print(Settings.EOLN);
 
 	Serial2.printf("sdk=%s chipid=%d cpu@%d", ESP.getSdkVersion(), ESP.getChipRevision(), ESP.getCpuFreqMHz());
@@ -1012,13 +1008,13 @@ ZResult ZModem::execInfo(int vval, uint8_t *vbuf, int vlen, bool isNumber)
 		break;
 	case 12:
 		Serial2.print(Settings.EOLN);
-		Serial2.printf("Total bytes Tx: %lu", bytesTxTotal);
+		Serial2.printf("TX Total bytes: %lu", totalBytesTx);
 		Serial2.print(Settings.EOLN);
-		Serial2.printf("Total bytes Rx: %lu", bytesRxTotal);
+		Serial2.printf("RX Total bytes: %lu", totalBytesRx);
 		Serial2.print(Settings.EOLN);
-		Serial2.printf("Tx rate: %lu/sec", bytesTxPerSec);
+		Serial2.printf("TX Max Rate: %lu bytes/sec", maxRateTx);
 		Serial2.print(Settings.EOLN);
-		Serial2.printf("Rx rate: %lu/sec", bytesRxPerSec);
+		Serial2.printf("RX Max Rate: %lu bytes/sec", maxRateRx);
 		break;
 	default:
 		Serial2.print(Settings.EOLN);
@@ -1528,150 +1524,6 @@ void ZModem::switchTo(ZMode newMode, ZResult rc)
 	mode = newMode;
 }
 
-void ZModem::commandModeHandler()
-{
-	if (Serial2.available() > 0 && readSerialStream())
-	{
-		ZResult rc = execCommand();
-		if (!Settings.suppressResponses)
-		{
-			sendResponse(rc);
-		}
-	}
-}
-
-void ZModem::consoleModeHandler()
-{
-	if (Serial2.available() > 0 && readSerialStream())
-	{
-		String line = (char *)buffer;
-		line.trim();
-		DPRINTLN(line);
-		console.exec(line);
-		buffer[0] = '\0';
-		buflen = 0;
-	}
-	if (console.done())
-	{
-		switchTo(ZCOMMAND_MODE, ZOK);
-	}
-}
-
-void ZModem::streamModeHandler()
-{
-	static unsigned long resetTxMillis = millis();
-	static unsigned long resetRxMillis = millis();
-
-	if (socket != nullptr && socket->connected())
-	{
-		while (Serial2.available() > 0)
-		{
-			// bridge data from DTE to network
-			char c = Serial2.read();
-			if (c != EC || (millis() - esc.gt1) < 1000 || esc.len >= sizeof(esc.buf))
-			{
-				if (esc.len)
-				{
-					socketWrite(esc.buf, esc.len);
-					esc.len = 0;
-					esc.gt2 = 0;
-				}
-				socketWrite(c);
-				esc.gt1 = millis();
-			}
-			else
-			{
-				esc.buf[esc.len++] = c;
-				if (esc.len >= 3)
-				{
-					esc.gt2 = millis();
-				}
-			}
-			// Tx stats
-			bytesTxTotal++;
-			if ((millis() - resetTxMillis) < 1000)
-			{
-				bytesTxPerSec++;
-			}
-			else
-			{
-				bytesTxPerSec = 0;
-				resetTxMillis = millis();
-			}
-			// if there are incoming data from network break
-			if (socket->available() > 0)
-				break;
-		}
-		// check escape sequence
-		if (esc.gt2 && (millis() - esc.gt2) > 1000)
-		{
-			esc.gt2 = 0;
-			esc.len = 0;
-			switchTo(ZCOMMAND_MODE, ZOK);
-		}
-		// bridge data from network to DTE
-		if (socket->available() > 0)
-		{
-			int free = Serial2.availableForWrite();
-			while (--free > 0 && socket->available() > 0)
-			{
-				char c = socket->read();
-				if ((!socket->telnetMode() || processIAC(&c)) && (!socket->petsciiMode() || asc2pet(&c)))
-					Serial2.write(c);
-				// RX stats
-				bytesRxTotal++;
-				if ((millis() - resetRxMillis) < 1000)
-				{
-					resetRxMillis++;
-				}
-				else
-				{
-					resetRxMillis = 0;
-					resetRxMillis = millis();
-				}
-				// if there are incoming data from DTE break
-				if (Serial2.available() > 0)
-					break;
-			}
-		}
-	}
-	else
-	{
-		for (int i = 0; i < clients.size(); i++)
-		{
-			if (clients.get(i) == socket)
-			{
-				clients.remove(i);
-				delete socket;
-				socket = nullptr;
-				break;
-			}
-		}
-
-		switchTo(ZCOMMAND_MODE, ZNOCARRIER);
-	}
-}
-
-void ZModem::printModeHandler()
-{
-}
-
-void ZModem::shellModeHandler()
-{
-	if (Serial2.available() > 0 && readSerialStream())
-	{
-		String line = (char *)buffer;
-		line.trim();
-		shell.exec(line);
-		buffer[0] = '\0';
-		buflen = 0;
-	}
-	if (shell.done())
-	{
-		switchTo(ZCOMMAND_MODE, ZOK);
-	}
-}
-
 void ZModem::factoryReset()
 {
 	DPRINTLN("Factory Reset!");
@@ -1740,28 +1592,4 @@ void ZModem::begin()
 	}
 
 	showInitMessage();
-}
-
-void ZModem::tick()
-{
-	httpServer.handleClient();
-
-	switch (mode)
-	{
-	case ZCOMMAND_MODE:
-		commandModeHandler();
-		break;
-	case ZCONSOLE_MODE:
-		consoleModeHandler();
-		break;
-	case ZSTREAM_MODE:
-		streamModeHandler();
-		break;
-	case ZPRINT_MODE:
-		printModeHandler();
-		break;
-	case ZSHELL_MODE:
-		shellModeHandler();
-		break;
-	}
 }
