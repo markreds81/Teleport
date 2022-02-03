@@ -763,6 +763,8 @@ ZResult ZModem::execCommand()
 					switchTo(ZCONSOLE_MODE);
 				else if (strcmp((const char *)vbuf, "shell") == 0)
 					switchTo(ZSHELL_MODE);
+				else if (strcmp((const char *)vbuf, "rst") == 0)
+					ESP.restart();
 				else
 					rc = ZERROR;
 				break;
@@ -1434,7 +1436,6 @@ ZResult ZModem::execPhonebook(unsigned long vval, uint8_t *vbuf, int vlen, bool 
 					Serial2.print(pbe.notes);
 					Serial2.print(")");
 				}
-				delay(10);
 			}
 		}
 		return ZOK;
