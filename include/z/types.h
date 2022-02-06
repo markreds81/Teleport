@@ -12,14 +12,16 @@
 #include "z/options.h"
 #include <stdint.h>
 
-enum FlowControlType
+enum FlowControlMode
 {
-	FCT_RTSCTS = 0,
-	FCT_NORMAL = 1,
-	FCT_AUTOOFF = 2,
-	FCT_MANUAL = 3,
-	FCT_DISABLED = 4,
-	FCT_INVALID = 5
+	FCM_DISABLED = 0,
+	FCM_UNUSED1 = 1,
+	FCM_UNUSED2 = 2,
+	FCM_HARDWARE = 3,		// RTS/CTS
+	FCM_SOFTWARE = 4,		// XON/XOFF
+	FCM_TRANSPARENT = 5,	// transparent XON/XOFF
+	FCM_BOTH = 6,			// both RTS/CTS and XON/XOFF
+	FCM_INVALID = 7
 };
 
 enum ZResult

@@ -55,7 +55,7 @@ ZSettings::ZSettings()
     suppressResponses = false;
     longResponses = false;
     baudRate = DEFAULT_BAUD_RATE;
-    flowControlType = FCT_DISABLED;
+    flowControlMode = FCM_DISABLED;
     EOLN = "\r\n";
     hostname = "";
     wifiSSID = "";
@@ -167,7 +167,7 @@ void ZSettings::loadFactoryProfile(long id)
         suppressResponses = false;
         longResponses = false;
         baudRate = DEFAULT_BAUD_RATE;
-        flowControlType = FCT_DISABLED;
+        flowControlMode = FCM_DISABLED;
         EOLN = "\r\n";
         hostname = "";
         wifiSSID = "";

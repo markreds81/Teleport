@@ -20,7 +20,7 @@ public:
 	String wifiSSID;
 	String wifiPSWD;
     int baudRate;
-    FlowControlType flowControlType;
+    FlowControlMode flowControlMode;
     bool doEcho;
 	bool numericResponses;
 	bool suppressResponses;

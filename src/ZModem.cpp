@@ -310,44 +310,21 @@ bool ZModem::readSerialStream()
 
 		if (c > 0)
 		{
-			if ((c == ASCII_XOFF) && (Settings.flowControlType == FCT_NORMAL))
+			if (Settings.doEcho)
 			{
-				DPRINTLN("Serial2.setXON(false)");
+				Serial2.write(c);
 			}
-			else if ((c == ASCII_XOFF) && ((Settings.flowControlType == FCT_AUTOOFF) || (Settings.flowControlType == FCT_MANUAL)))
+			if ((c == BS) || ((BS == 8) && ((c == ASCII_DC4) || (c == ASCII_DELETE))))
 			{
-				DPRINTLN("packetXOn = false");
-			}
-			else if ((c == ASCII_XON) && (Settings.flowControlType == FCT_NORMAL))
-			{
-				DPRINTLN("Serial2.setXON(true)");
-			}
-			else if ((c == ASCII_XON) && ((Settings.flowControlType == FCT_AUTOOFF) || (Settings.flowControlType == FCT_MANUAL)))
-			{
-				DPRINTLN("packetXOn = true");
-				if (Settings.flowControlType == FCT_MANUAL)
+				if (buflen > 0)
 				{
-					DPRINTLN("sendNextPacket()");
+					buffer[--buflen] = '\0';
 				}
+				continue;
 			}
-			else
-			{
-				if (Settings.doEcho)
-				{
-					Serial2.write(c);
-				}
-				if ((c == BS) || ((BS == 8) && ((c == ASCII_DC4) || (c == ASCII_DELETE))))
-				{
-					if (buflen > 0)
-					{
-						buffer[--buflen] = '\0';
-					}
-					continue;
-				}
-				buffer[buflen++] = c;
-				buffer[buflen] = '\0';
-				crReceived = (buflen >= MAX_COMMAND_SIZE) || (buflen == 2 && buffer[1] == '/' && lc(buffer[0]) == 'a');
-			}
+			buffer[buflen++] = c;
+			buffer[buflen] = '\0';
+			crReceived = (buflen >= MAX_COMMAND_SIZE) || (buflen == 2 && buffer[1] == '/' && lc(buffer[0]) == 'a');
 		}
 	}
 	return crReceived && buflen > 0;
@@ -674,7 +651,7 @@ ZResult ZModem::execCommand()
 				}
 				break;
 			case 'f':
-				DPRINTLN("flowcontrol");
+				DPRINTLN("f");
 				break;
 			case 'x':
 				DPRINTLN("x");
@@ -831,7 +808,10 @@ ZResult ZModem::execCommand()
 				switch (sec)
 				{
 				case 'k':
-					DPRINTLN("k");
+					if (!isNumber || vval >= FCM_INVALID)
+						rc = ZERROR;
+					else
+						Serial2.setFlowControl((FlowControlMode)vval);
 					break;
 				case 'l':
 					if (isNumber)
@@ -932,24 +912,30 @@ ZResult ZModem::execInfo(int vval, uint8_t *vbuf, int vlen, bool isNumber)
 			Serial2.printf("%s%d", "V", Settings.numericResponses ? 1 : 0);
 			Serial2.printf("%s%d", "X", Settings.longResponses ? 1 : 0);
 		}
-		switch (Settings.flowControlType)
+		switch (Settings.flowControlMode)
 		{
-		case FCT_RTSCTS:
-			Serial2.printf("%s%d", "F", 0);
+		case FCM_DISABLED:
+			Serial2.printf("%s%d", "&K", 0);
 			break;
-		case FCT_NORMAL:
-			Serial2.printf("%s%d", "F", 1);
+		case FCM_UNUSED1:
+			Serial2.printf("%s%d", "&K", 1);
 			break;
-		case FCT_AUTOOFF:
-			Serial2.printf("%s%d", "F", 2);
+		case FCM_UNUSED2:
+			Serial2.printf("%s%d", "&K", 2);
 			break;
-		case FCT_MANUAL:
-			Serial2.printf("%s%d", "F", 3);
+		case FCM_HARDWARE:
+			Serial2.printf("%s%d", "&K", 3);
 			break;
-		case FCT_DISABLED:
-			Serial2.printf("%s%d", "F", 4);
+		case FCM_SOFTWARE:
+			Serial2.printf("%s%d", "&K", 4);
 			break;
-		case FCT_INVALID:
+		case FCM_TRANSPARENT:
+			Serial2.printf("%s%d", "&K", 5);
+			break;
+		case FCM_BOTH:
+			Serial2.printf("%s%d", "&K", 6);
+			break;		
+		case FCM_INVALID:
 			break;
 		}
 		if (Settings.EOLN == CR)
@@ -1552,6 +1538,8 @@ void ZModem::disconnect()
 
 void ZModem::begin()
 {
+	pinMode(PIN_CTS, INPUT);
+	pinMode(PIN_RTS, OUTPUT);
 	pinMode(PIN_LED_HS, OUTPUT);
 	pinMode(PIN_LED_DATA, OUTPUT);
 	pinMode(PIN_LED_WIFI, OUTPUT);

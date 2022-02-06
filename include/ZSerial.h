@@ -3,6 +3,7 @@
 
 #include <HardwareSerial.h>
 #include <Arduino.h>
+#include "z/types.h"
 
 class ZSerial : public HardwareSerial
 {
@@ -16,6 +17,8 @@ public:
     int available();
     size_t write(uint8_t c);
     size_t write(const uint8_t *buffer, size_t size);
+
+    void setFlowControl(FlowControlMode mode);
 };
 
 extern ZSerial Serial2;
