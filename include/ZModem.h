@@ -5,6 +5,7 @@
 #include "z/types.h"
 #include "ZSerial.h"
 #include "ZClient.h"
+#include "ZBuzzer.h"
 #include "ZShell.h"
 #include "ZConsole.h"
 #include "ZUpdater.h"
@@ -29,6 +30,7 @@ private:
 
 	ZMode mode;
 	ZEscape esc;
+	ZBuzzer buzzer;
 	ZClient *socket;
 	ZShell shell;
 	ZConsole console;

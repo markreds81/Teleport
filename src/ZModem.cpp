@@ -1544,6 +1544,8 @@ void ZModem::begin()
 	pinMode(PIN_LED_DATA, OUTPUT);
 	pinMode(PIN_LED_WIFI, OUTPUT);
 
+	buzzer.playTuneAsync();
+
 	digitalWrite(PIN_LED_DATA, HIGH);
 	delay(200);
 	digitalWrite(PIN_LED_DATA, LOW);
