@@ -1,11 +1,12 @@
 #ifndef ZCONSOLE_H
 #define ZCONSOLE_H
 
+#include "ZProfile.h"
 #include <Arduino.h>
 
-#define ZCONSOLE_SHOW_MENU	0x01
-#define ZCONSOLE_DONE		0x02
-#define ZCONSOLE_CHANGED	0x04
+#define ZCONSOLE_SHOW_MENU 0x01
+#define ZCONSOLE_DONE 0x02
+#define ZCONSOLE_CHANGED 0x04
 
 class ZConsole
 {
@@ -28,13 +29,15 @@ private:
 		ZMENU_SUBNET = 13
 	} menu;
 	uint8_t state;
-public:
-    ZConsole();
-    virtual ~ZConsole();
+	char EOLN[3];
 
-	void begin();
+public:
+	ZConsole();
+	virtual ~ZConsole();
+
+	void begin(ZProfile &profile);
 	void exec(String cmd);
-	bool done();
+	bool done(ZProfile &profile);
 	void end();
 };
 

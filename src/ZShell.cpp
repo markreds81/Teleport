@@ -1,7 +1,6 @@
 #include "ZShell.h"
 #include "ZDebug.h"
 #include "ZSerial.h"
-#include "ZSettings.h"
 #include <SD.h>
 
 ZShell::ZShell()
@@ -13,7 +12,7 @@ ZShell::~ZShell()
 {
 }
 
-void ZShell::begin()
+void ZShell::begin(ZProfile &profile)
 {
 	if (!SD.begin())
 	{
@@ -26,6 +25,17 @@ void ZShell::begin()
 	else
 	{
 		DPRINTF("SD Card %s\n", "mounted");
+	}
+
+	EOLN[0] = profile.carriageReturn();
+	if (profile.resultCodeVerbose())
+	{
+		EOLN[1] = profile.lineFeed();
+		EOLN[2] = '\0';
+	}
+	else
+	{
+		EOLN[1] = '\0';
 	}
 	
 	state = ZSHELL_SHOW_PROMPT;
@@ -57,7 +67,7 @@ void ZShell::exec(String line)
 		line = emptyString;
 	}
 
-	Serial2.print(Settings.EOLN);
+	Serial2.print(EOLN);
 
 	if (cmd.length())
 	{
@@ -99,23 +109,23 @@ void ZShell::exec(String line)
 			String p = makePath(cleanOneArg(line));
 			DPRINTF("md:%s\n", p.c_str());
 			if ((p.length() < 2) || isMask(p) || !SD.mkdir(p))
-				Serial2.printf("Illegal path: %s%s", p.c_str(), Settings.EOLN.c_str());
+				Serial2.printf("Illegal path: %s%s", p.c_str(), EOLN);
 		}
 		else if (cmd.equalsIgnoreCase("cd"))
 		{
 			String p = makePath(cleanOneArg(line));
 			DPRINTF("cd:%s\n", p.c_str());
 			if (p.length() == 0)
-				Serial2.printf("Current path: %s%s", p.c_str(), Settings.EOLN.c_str());
+				Serial2.printf("Current path: %s%s", p.c_str(), EOLN);
 			else if (p == "/")
 				path = "/";
 			else if (p.length() > 1)
 			{
 				File root = SD.open(p);
 				if (!root)
-					Serial2.printf("Unknown path: %s%s", p.c_str(), Settings.EOLN.c_str());
+					Serial2.printf("Unknown path: %s%s", p.c_str(), EOLN);
 				else if (!root.isDirectory())
-					Serial2.printf("Illegal path: %s%s", p.c_str(), Settings.EOLN.c_str());
+					Serial2.printf("Illegal path: %s%s", p.c_str(), EOLN);
 				else
 					path = p + "/";
 			}
@@ -126,11 +136,11 @@ void ZShell::exec(String line)
 			DPRINTF("rd:%s\n", p.c_str());
 			File root = SD.open(p);
 			if (!root)
-				Serial2.printf("Unknown path: %s%s", p.c_str(), Settings.EOLN.c_str());
+				Serial2.printf("Unknown path: %s%s", p.c_str(), EOLN);
 			else if (!root.isDirectory())
-				Serial2.printf("Not a directory: %s%s", p.c_str(), Settings.EOLN.c_str());
+				Serial2.printf("Not a directory: %s%s", p.c_str(), EOLN);
 			else if (!SD.rmdir(p))
-				Serial2.printf("Failed to remove directory: %s%s", p.c_str(), Settings.EOLN.c_str());
+				Serial2.printf("Failed to remove directory: %s%s", p.c_str(), EOLN);
 		}
 		else if (cmd.equalsIgnoreCase("cat") || cmd.equalsIgnoreCase("type"))
 		{
@@ -138,9 +148,9 @@ void ZShell::exec(String line)
 			DPRINTF("cat:%s\n", p.c_str());
 			File root = SD.open(p);
 			if (!root)
-				Serial2.printf("Unknown path: %s%s", p.c_str(), Settings.EOLN.c_str());
+				Serial2.printf("Unknown path: %s%s", p.c_str(), EOLN);
 			else if (root.isDirectory())
-				Serial2.printf("Is a directory: %s%s", p.c_str(), Settings.EOLN.c_str());
+				Serial2.printf("Is a directory: %s%s", p.c_str(), EOLN);
 			else
 			{
 				root.close();
@@ -211,7 +221,7 @@ void ZShell::exec(String line)
 		}
 		else if (cmd.equalsIgnoreCase("df") || cmd.equalsIgnoreCase("free") || cmd.equalsIgnoreCase("info"))
 		{
-			Serial2.printf("%llu free of %llu total%s", (SD.totalBytes() - SD.usedBytes()), SD.totalBytes(), Settings.EOLN.c_str());
+			Serial2.printf("%llu free of %llu total%s", (SD.totalBytes() - SD.usedBytes()), SD.totalBytes(), EOLN);
 		}
 		else if (cmd.equalsIgnoreCase("ren") || cmd.equalsIgnoreCase("rename"))
 		{
@@ -219,13 +229,13 @@ void ZShell::exec(String line)
 			String p2 = makePath(cleanRemainArg(line));
 			DPRINTF("ren:%s -> %s\n", p1.c_str(), p2.c_str());
 			if (p1 == p2)
-				Serial2.printf("File exists: %s%s", p1.c_str(), Settings.EOLN.c_str());
+				Serial2.printf("File exists: %s%s", p1.c_str(), EOLN);
 			else if (SD.exists(p2))
-				Serial2.printf("File exists: %s%s", p2.c_str(), Settings.EOLN.c_str());
+				Serial2.printf("File exists: %s%s", p2.c_str(), EOLN);
 			else
 			{
 				if (!SD.rename(p1, p2))
-					Serial2.printf("Failed to rename: %s%s", p1.c_str(), Settings.EOLN.c_str());
+					Serial2.printf("Failed to rename: %s%s", p1.c_str(), EOLN);
 			}
 		}
 		else if (cmd.equalsIgnoreCase("wget"))
@@ -276,15 +286,15 @@ void ZShell::exec(String line)
 				}
 				root.close();
 				if (p1 == p2)
-					Serial2.printf("File exists: %s%s", p1.c_str(), Settings.EOLN.c_str());
+					Serial2.printf("File exists: %s%s", p1.c_str(), EOLN);
 				else if (SD.exists(p2) && (!overwrite))
-					Serial2.printf("File exists: %s%s", p2.c_str(), Settings.EOLN.c_str());
+					Serial2.printf("File exists: %s%s", p2.c_str(), EOLN);
 				else
 				{
 					if (SD.exists(p2))
 						SD.remove(p2);
 					if (!SD.rename(p1, p2))
-						Serial2.printf("Failed to move: %s%s", p1.c_str(), Settings.EOLN.c_str());
+						Serial2.printf("Failed to move: %s%s", p1.c_str(), EOLN);
 				}
 			}
 			else
@@ -295,29 +305,29 @@ void ZShell::exec(String line)
 		}
 		else if (cmd.equals("?") || cmd.equals("help"))
 		{
-			Serial2.printf("Commands:%s", Settings.EOLN.c_str());
-			Serial2.printf("ls/dir/list/$ [-r] [/][path]                   - List files%s", Settings.EOLN.c_str());
-			Serial2.printf("cd [/][path][..]                               - Change to new directory%s", Settings.EOLN.c_str());
-			Serial2.printf("md/mkdir/makedir [/][path]                     - Create a new directory%s", Settings.EOLN.c_str());
-			Serial2.printf("rd/rmdir/deletedir [/][path]                   - Delete a directory%s", Settings.EOLN.c_str());
-			Serial2.printf("rm/del/delete [-r] [/][path]filename           - Delete a file%s", Settings.EOLN.c_str());
-			Serial2.printf("cp/copy [-r] [-f] [/][path]file [/][path]file  - Copy file(s)%s", Settings.EOLN.c_str());
-			Serial2.printf("ren/rename [/][path]file [/][path]file         - Rename a file%s", Settings.EOLN.c_str());
-			Serial2.printf("mv/move [-f] [/][path]file [/][path]file       - Move file(s)%s", Settings.EOLN.c_str());
-			Serial2.printf("cat/type [/][path]filename                     - View a file(s)%s", Settings.EOLN.c_str());
-			Serial2.printf("df/free/info                                   - Show space remaining%s", Settings.EOLN.c_str());
-			Serial2.printf("xget/zget/kget [/][path]filename               - Download a file%s", Settings.EOLN.c_str());
-			Serial2.printf("xput/zput/kput [/][path]filename               - Upload a file%s", Settings.EOLN.c_str());
-			Serial2.printf("wget [http://url] [/][path]filename            - Download url to file%s", Settings.EOLN.c_str());
-			Serial2.printf("fget [ftp://user:pass@url/file] [/][path]file  - FTP get file%s", Settings.EOLN.c_str());
-			Serial2.printf("fput [/][path]file [ftp://user:pass@url/file]  - FTP put file%s", Settings.EOLN.c_str());
-			Serial2.printf("fdir [ftp://user:pass@url/path]                - ftp url dir%s", Settings.EOLN.c_str());
-			Serial2.printf("exit/quit/x/endshell                           - Quit to command mode%s", Settings.EOLN.c_str());
-			Serial2.printf("%s", Settings.EOLN.c_str());
+			Serial2.printf("Commands:%s", EOLN);
+			Serial2.printf("ls/dir/list/$ [-r] [/][path]                   - List files%s", EOLN);
+			Serial2.printf("cd [/][path][..]                               - Change to new directory%s", EOLN);
+			Serial2.printf("md/mkdir/makedir [/][path]                     - Create a new directory%s", EOLN);
+			Serial2.printf("rd/rmdir/deletedir [/][path]                   - Delete a directory%s", EOLN);
+			Serial2.printf("rm/del/delete [-r] [/][path]filename           - Delete a file%s", EOLN);
+			Serial2.printf("cp/copy [-r] [-f] [/][path]file [/][path]file  - Copy file(s)%s", EOLN);
+			Serial2.printf("ren/rename [/][path]file [/][path]file         - Rename a file%s", EOLN);
+			Serial2.printf("mv/move [-f] [/][path]file [/][path]file       - Move file(s)%s", EOLN);
+			Serial2.printf("cat/type [/][path]filename                     - View a file(s)%s", EOLN);
+			Serial2.printf("df/free/info                                   - Show space remaining%s", EOLN);
+			Serial2.printf("xget/zget/kget [/][path]filename               - Download a file%s", EOLN);
+			Serial2.printf("xput/zput/kput [/][path]filename               - Upload a file%s", EOLN);
+			Serial2.printf("wget [http://url] [/][path]filename            - Download url to file%s", EOLN);
+			Serial2.printf("fget [ftp://user:pass@url/file] [/][path]file  - FTP get file%s", EOLN);
+			Serial2.printf("fput [/][path]file [ftp://user:pass@url/file]  - FTP put file%s", EOLN);
+			Serial2.printf("fdir [ftp://user:pass@url/path]                - ftp url dir%s", EOLN);
+			Serial2.printf("exit/quit/x/endshell                           - Quit to command mode%s", EOLN);
+			Serial2.printf("%s", EOLN);
 		}
 		else
 		{
-			Serial2.printf("Unknown command: '%s'.  Try '?'.%s", cmd.c_str(), Settings.EOLN.c_str());
+			Serial2.printf("Unknown command: '%s'.  Try '?'.%s", cmd.c_str(), EOLN);
 		}
 	}
 }
@@ -327,7 +337,7 @@ bool ZShell::done()
 	if (state & ZSHELL_SHOW_PROMPT)
 	{
 		state &= ~ZSHELL_SHOW_PROMPT;
-		Serial2.printf("%s%s> ", Settings.EOLN.c_str(), path.c_str());
+		Serial2.printf("%s%s> ", EOLN, path.c_str());
 	}
 	return (state & ZSHELL_DONE) == ZSHELL_DONE;
 }
@@ -574,7 +584,7 @@ void ZShell::showDirectory(String p, String mask, String prefix, bool recurse)
 
 	File root = SD.open(p);
 	if (!root)
-		Serial2.printf("Unknown path: %s%s\n", p.c_str(), Settings.EOLN.c_str());
+		Serial2.printf("Unknown path: %s%s\n", p.c_str(), EOLN);
 	else if (root.isDirectory())
 	{
 		File file = root.openNextFile();
@@ -585,7 +595,7 @@ void ZShell::showDirectory(String p, String mask, String prefix, bool recurse)
 				DPRINTF("file matched:%s\n", file.name());
 				if (file.isDirectory())
 				{
-					Serial2.printf("%sd %s%s", prefix.c_str(), file.name() + maskFilterLen, Settings.EOLN.c_str());
+					Serial2.printf("%sd %s%s", prefix.c_str(), file.name() + maskFilterLen, EOLN);
 					if (recurse)
 					{
 						String newPrefix = prefix + "  ";
@@ -593,7 +603,7 @@ void ZShell::showDirectory(String p, String mask, String prefix, bool recurse)
 					}
 				}
 				else
-					Serial2.printf("%s  %s %d%s", prefix.c_str(), file.name() + maskFilterLen, file.size(), Settings.EOLN.c_str());
+					Serial2.printf("%s  %s %d%s", prefix.c_str(), file.name() + maskFilterLen, file.size(), EOLN);
 			}
 			else
 				DPRINTF("file unmatched:%s (%s)\n", file.name(), mask.c_str());
@@ -601,7 +611,7 @@ void ZShell::showDirectory(String p, String mask, String prefix, bool recurse)
 		}
 	}
 	else
-		Serial2.printf("  %s %d%s", root.name(), root.size(), Settings.EOLN.c_str());
+		Serial2.printf("  %s %d%s", root.name(), root.size(), EOLN);
 }
 
 void ZShell::deleteFile(String p, String mask, bool recurse)
@@ -612,7 +622,7 @@ void ZShell::deleteFile(String p, String mask, bool recurse)
 
 	File root = SD.open(p);
 	if (!root)
-		Serial2.printf("Unknown path: %s%s", p.c_str(), Settings.EOLN.c_str());
+		Serial2.printf("Unknown path: %s%s", p.c_str(), EOLN);
 	else if (root.isDirectory())
 	{
 		File file = root.openNextFile();
@@ -628,11 +638,11 @@ void ZShell::deleteFile(String p, String mask, bool recurse)
 						file = root.openNextFile();
 						deleteFile(fileName.c_str(), "*", recurse);
 						if (!SD.rmdir(fileName.c_str()))
-							Serial2.printf("Unable to delete: %s%s", fileName.c_str() + maskFilterLen, Settings.EOLN.c_str());
+							Serial2.printf("Unable to delete: %s%s", fileName.c_str() + maskFilterLen, EOLN);
 					}
 					else
 					{
-						Serial2.printf("Skipping: %s%s", file.name() + maskFilterLen, Settings.EOLN.c_str());
+						Serial2.printf("Skipping: %s%s", file.name() + maskFilterLen, EOLN);
 						file = root.openNextFile();
 					}
 				}
@@ -640,7 +650,7 @@ void ZShell::deleteFile(String p, String mask, bool recurse)
 				{
 					file = root.openNextFile();
 					if (!SD.remove(fileName))
-						Serial2.printf("Unable to delete: %s%s", file.name() + maskFilterLen, Settings.EOLN.c_str());
+						Serial2.printf("Unable to delete: %s%s", file.name() + maskFilterLen, EOLN);
 				}
 			}
 			else
@@ -658,7 +668,7 @@ void ZShell::copyFiles(String source, String mask, String target, bool recurse, 
 	File root = SD.open(source);
 	if (!root)
 	{
-		Serial2.printf("Unknown path: %s%s", source.c_str(), Settings.EOLN.c_str());
+		Serial2.printf("Unknown path: %s%s", source.c_str(), EOLN);
 		return;
 	}
 
@@ -673,7 +683,7 @@ void ZShell::copyFiles(String source, String mask, String target, bool recurse, 
 			File DD = SD.open(target); // cp d d2, cp d f
 			if (!DD.isDirectory())
 			{
-				Serial2.printf("File exists: %s%s", DD.name(), Settings.EOLN.c_str());
+				Serial2.printf("File exists: %s%s", DD.name(), EOLN);
 				DD.close();
 				return;
 			}
@@ -687,7 +697,7 @@ void ZShell::copyFiles(String source, String mask, String target, bool recurse, 
 				if (file.isDirectory())
 				{
 					if (!recurse)
-						Serial2.printf("Skipping: %s%s", file.name(), Settings.EOLN.c_str());
+						Serial2.printf("Skipping: %s%s", file.name(), EOLN);
 					else
 					{
 						if (!tpath.endsWith("/"))
@@ -719,13 +729,13 @@ void ZShell::copyFiles(String source, String mask, String target, bool recurse, 
 			File DD = SD.open(tpath);
 			if (strcmp(DD.name(), root.name()) == 0)
 			{
-				Serial2.printf("File exists: %s%s", DD.name(), Settings.EOLN.c_str());
+				Serial2.printf("File exists: %s%s", DD.name(), EOLN);
 				DD.close();
 				return;
 			}
 			else if (!overwrite) // cp f a, cp f e
 			{
-				Serial2.printf("File exists: %s%s", DD.name(), Settings.EOLN.c_str());
+				Serial2.printf("File exists: %s%s", DD.name(), EOLN);
 				DD.close();
 				return;
 			}

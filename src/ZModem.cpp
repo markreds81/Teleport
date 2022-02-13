@@ -1,8 +1,8 @@
 #include "ZModem.h"
 #include "ZPhonebook.h"
 #include "z/version.h"
-#include <WiFi.h>
 #include <SPIFFS.h>
+#include <WiFi.h>
 
 #define TELNET_BINARY 0
 #define TELNET_ECHO 1
@@ -87,20 +87,22 @@ ZModem::ZModem()
 	mode = ZCOMMAND_MODE;
 	buffer[0] = '\0';
 	buflen = 0;
-	BS = ASCII_BS;
-	EC = '+';
 	termType = DEFAULT_TERMTYPE;
 	lastCommand = emptyString;
-	strcpy(CRLF, "\r\n");
-	strcpy(LFCR, "\n\r");
-	strcpy(LF, "\n");
-	strcpy(CR, "\r");
-	memset(ECS, EC, 3);
 	memset(&esc, 0, sizeof(esc));
 }
 
 ZModem::~ZModem()
 {
+}
+
+void ZModem::println()
+{
+	Serial2.print(SREG.carriageReturn());
+	if (SREG.resultCodeVerbose())
+	{
+		Serial2.print(SREG.lineFeed());
+	}
 }
 
 char ZModem::lc(char c)
@@ -265,14 +267,14 @@ bool ZModem::connectWiFi(const char *ssid, const char *pswd, IPAddress *ip, IPAd
 		{
 			DPRINTLN("OK");
 			httpServer.begin(80);
-			if (Settings.hostname.length() > 0)
+			if (strlen(SREG.hostname) > 0)
 			{
-				WiFi.hostname(Settings.hostname);
-				if (MDNS.begin(Settings.hostname.c_str()))
+				WiFi.hostname(String(SREG.hostname));
+				if (MDNS.begin(SREG.hostname))
 				{
 					DPRINTLN("mDNS responder started");
 					MDNS.addService("http", "tcp", 80);
-					DPRINTF("HTTPUpdateServer available at http://%s.local/update in your browser\n", Settings.hostname.c_str());
+					DPRINTF("HTTPUpdateServer available at http://%s.local/update in your browser\n", SREG.hostname);
 				}
 			}
 			digitalWrite(PIN_LED_WIFI, HIGH);
@@ -300,7 +302,7 @@ bool ZModem::readSerialStream()
 		uint8_t c = Serial2.read();
 		if (c == '\n' || c == '\r')
 		{
-			if (Settings.doEcho)
+			if (SREG.echoEnabled())
 			{
 				Serial2.write(c);
 			}
@@ -310,11 +312,11 @@ bool ZModem::readSerialStream()
 
 		if (c > 0)
 		{
-			if (Settings.doEcho)
+			if (SREG.echoEnabled())
 			{
 				Serial2.write(c);
 			}
-			if ((c == BS) || ((BS == 8) && ((c == ASCII_DC4) || (c == ASCII_DELETE))))
+			if ((c == SREG[5]) || ((SREG[5] == 8) && ((c == ASCII_DC4) || (c == ASCII_DELETE))))
 			{
 				if (buflen > 0)
 				{
@@ -332,34 +334,34 @@ bool ZModem::readSerialStream()
 
 void ZModem::showInitMessage()
 {
-	Serial2.print(Settings.EOLN);
+	println();
 	Serial2.printf("%s Firmware v%s (%s)", ZMODEM_APPNAME, ZMODEM_VERSION, ZMODEM_CODENAME);
-	Serial2.print(Settings.EOLN);
+	println();
 
 	Serial2.printf("sdk=%s chipid=%d cpu@%d", ESP.getSdkVersion(), ESP.getChipRevision(), ESP.getCpuFreqMHz());
-	Serial2.print(Settings.EOLN);
+	println();
 
 	Serial2.printf("totsize=%dk hsize=%dk fsize=%dk speed=%dm", (ESP.getFlashChipSize() / 1024), (ESP.getFreeHeap() / 1024), SPIFFS.totalBytes() / 1024, (ESP.getFlashChipSpeed() / 1000000));
-	Serial2.print(Settings.EOLN);
+	println();
 
-	if (Settings.wifiSSID.length() > 0)
+	if (strlen(SREG.wifiSSID) > 0)
 	{
 		if (WiFi.status() == WL_CONNECTED)
 		{
-			Serial2.print(("CONNECTED TO " + Settings.wifiSSID + " (" + WiFi.localIP().toString().c_str() + ")").c_str());
+			Serial2.printf("CONNECTED TO %s (%s)", SREG.wifiSSID, WiFi.localIP().toString().c_str());
 		}
 		else
 		{
-			Serial2.print(("ERROR ON " + Settings.wifiSSID).c_str());
+			Serial2.printf("ERROR ON %s", SREG.wifiSSID);
 		}
 	}
 	else
 	{
 		Serial2.print("INITIALIZED");
 	}
-	Serial2.print(Settings.EOLN);
+	println();
 	Serial2.print("READY.");
-	Serial2.print(Settings.EOLN);
+	println();
 	Serial2.flush();
 }
 
@@ -368,9 +370,9 @@ void ZModem::sendResponse(ZResult rc)
 	if (rc < ZIGNORE)
 	{
 		DPRINTF("Response: %s\n", RESULT_CODES_V1[rc]);
-		Serial2.print(Settings.EOLN);
-		Serial2.print(Settings.numericResponses ? RESULT_CODES_V0[rc] : RESULT_CODES_V1[rc]);
-		Serial2.print(Settings.EOLN);
+		println();
+		Serial2.print(SREG.resultCodeNumeric() ? RESULT_CODES_V0[rc] : RESULT_CODES_V1[rc]);
+		println();
 	}
 	else
 	{
@@ -380,42 +382,42 @@ void ZModem::sendResponse(ZResult rc)
 
 void ZModem::sendConnectionNotice(int id)
 {
-	Serial2.print(Settings.EOLN);
-	if (Settings.numericResponses)
+	println();
+	if (SREG.resultCodeNumeric())
 	{
-		if (!Settings.longResponses)
+		if (!SREG.resultCodeExtended())
 		{
 			Serial2.print("1");
 		}
-		else if (Settings.baudRate < 1200)
+		else if (SREG.baudRate < 1200)
 		{
 			Serial2.print("1");
 		}
-		else if (Settings.baudRate < 2400)
+		else if (SREG.baudRate < 2400)
 		{
 			Serial2.print("5");
 		}
-		else if (Settings.baudRate < 4800)
+		else if (SREG.baudRate < 4800)
 		{
 			Serial2.print("10");
 		}
-		else if (Settings.baudRate < 7200)
+		else if (SREG.baudRate < 7200)
 		{
 			Serial2.print("11");
 		}
-		else if (Settings.baudRate < 9600)
+		else if (SREG.baudRate < 9600)
 		{
 			Serial2.print("24");
 		}
-		else if (Settings.baudRate < 12000)
+		else if (SREG.baudRate < 12000)
 		{
 			Serial2.print("12");
 		}
-		else if (Settings.baudRate < 14400)
+		else if (SREG.baudRate < 14400)
 		{
 			Serial2.print("25");
 		}
-		else if (Settings.baudRate < 19200)
+		else if (SREG.baudRate < 19200)
 		{
 			Serial2.print("13");
 		}
@@ -427,13 +429,42 @@ void ZModem::sendConnectionNotice(int id)
 	else
 	{
 		Serial2.print("CONNECT");
-		if (Settings.longResponses)
+		if (SREG.resultCodeExtended())
 		{
 			Serial2.print(" ");
 			Serial2.print(id);
 		}
 	}
-	Serial2.print(Settings.EOLN);
+	println();
+}
+
+int ZModem::activeProfile()
+{
+	int result = 0;
+
+	File file = SPIFFS.open("/profile/active", "r");
+	if (file)
+	{
+		result = file.readString().toInt();
+		file.close();
+	}
+
+	if (result < 0)
+	{
+		result = 0;
+	}
+	
+	return result;
+}
+
+void ZModem::setActiveProfile(int num)
+{
+	File file = SPIFFS.open("/profile/active", "w");
+	if (file)
+	{
+		file.write(num);
+		file.close();
+	}
 }
 
 size_t ZModem::socketWrite(uint8_t c)
@@ -632,7 +663,24 @@ ZResult ZModem::execCommand()
 			switch (cmd)
 			{
 			case 'z':
-				rc = execReset();
+				if (!isNumber || vval < 0 || vval > 2)
+				{
+					rc = ZERROR;
+				}
+				else
+				{
+					DPRINTLN("Reset and Restore Profile");
+					for (int i = 0; i < clients.size(); i++)
+					{
+						ZClient *c = clients.get(i);
+						c->stop();
+						delay(50);
+						delete c;
+					}
+					clients.clear();
+					socket = nullptr;
+					SREG.loadProfile(int(vval));
+				}
 				break;
 			case 'n':
 				DPRINTLN("listen");
@@ -642,13 +690,9 @@ ZResult ZModem::execCommand()
 				break;
 			case 'e':
 				if (!isNumber)
-				{
 					rc = ZERROR;
-				}
 				else
-				{
-					Settings.doEcho = (vval > 0);
-				}
+					SREG.setEchoEnabled(vval > 0);
 				break;
 			case 'f':
 				DPRINTLN("f");
@@ -657,7 +701,7 @@ ZResult ZModem::execCommand()
 				DPRINTLN("x");
 				break;
 			case 'r':
-				rc = execEOLN(vval, vbuf, vlen, isNumber);
+				DPRINTLN("r");
 				break;
 			case 'b':
 				rc = execBaud(vval, vbuf, vlen);
@@ -712,26 +756,18 @@ ZResult ZModem::execCommand()
 				break;
 			case 'v':
 				if (!isNumber)
-				{
 					rc = ZERROR;
-				}
 				else
-				{
-					Settings.numericResponses = (vval == 0);
-				}
+					SREG.setResultCodeNumeric(vval == 0);
 				break;
 			case 'q':
 				if (!isNumber)
-				{
 					rc = ZERROR;
-				}
 				else
-				{
-					Settings.suppressResponses = (vval > 0);
-				}
+					SREG.setResultCodeEnabled(vval == 0);
 				break;
 			case 's':
-				DPRINTLN("s");
+				rc = execSRegister(vbuf, vlen);
 				break;
 			case '+':
 				for (int i = 0; vbuf[i] != 0; i++)
@@ -778,15 +814,15 @@ ZResult ZModem::execCommand()
 						DPRINTLN(val);
 						if (strcmp(var.c_str(), "ssid") == 0)
 						{
-							Settings.wifiSSID = val;
+							strcpy(SREG.wifiSSID, var.c_str());
 						}
 						else if (strcmp(var.c_str(), "pass") == 0)
 						{
-							Settings.wifiPSWD = val;
+							strcpy(SREG.wifiPSWD, val.c_str());
 						}
 						else if (strcmp(var.c_str(), "mdns") == 0)
 						{
-							Settings.hostname = val;
+							strcpy(SREG.hostname, val.c_str());
 						}
 						else if (strcmp(var.c_str(), "sb") == 0)
 						{
@@ -814,28 +850,28 @@ ZResult ZModem::execCommand()
 						Serial2.setFlowControl((FlowControlMode)vval);
 					break;
 				case 'l':
-					if (isNumber)
-						Settings.loadUserProfile(vval);
-					else
-						rc = ZERROR;
+					DPRINTLN("l");
 					break;
 				case 'w':
-					if (isNumber)
-						Settings.saveUserProfile(vval);
+					if (isNumber && vval >= 0 && vval < 2)
+						SREG.saveProfile(int(vval));
 					else
 						rc = ZERROR;
 					break;
 				case 'f':
-					if (isNumber)
-						Settings.loadFactoryProfile(vval);
+					if (isNumber && vval >= 0 && vval < 2)
+						SREG.loadProfile(-1);
+					else
+						rc = ZERROR;
+					break;
+				case 'y':
+					if (isNumber && vval >= 0 && vval < 2)
+						setActiveProfile(vval);
 					else
 						rc = ZERROR;
 					break;
 				case 'm':
 					DPRINTLN("m");
-					break;
-				case 'y':
-					DPRINTLN("y");
 					break;
 				case 'd':
 					DPRINTLN("d");
@@ -878,21 +914,6 @@ ZResult ZModem::execCommand()
 	return ZERROR;
 }
 
-ZResult ZModem::execReset()
-{
-	for (int i = 0; i < clients.size(); i++)
-	{
-		ZClient *c = clients.get(i);
-		c->stop();
-		delay(50);
-		delete c;
-	}
-	clients.clear();
-	socket = nullptr;
-	Settings.loadUserProfile(0);
-	return ZOK;
-}
-
 ZResult ZModem::execInfo(int vval, uint8_t *vbuf, int vlen, bool isNumber)
 {
 	switch (vval)
@@ -902,17 +923,17 @@ ZResult ZModem::execInfo(int vval, uint8_t *vbuf, int vlen, bool isNumber)
 		break;
 	case 1:
 	case 5:
-		Serial2.print(Settings.EOLN);
+		println();
 		Serial2.print("AT");
-		Serial2.printf("%s%d", "B", Settings.baudRate);
-		Serial2.printf("%s%d", "E", Settings.doEcho ? 1 : 0);
-		Serial2.printf("%s%d", "Q", Settings.suppressResponses ? 1 : 0);
+		Serial2.printf("%s%d", "B", (int)SREG.baudRate);
+		Serial2.printf("%s%d", "E", SREG.echoEnabled() ? 1 : 0);
+		Serial2.printf("%s%d", "Q", SREG.resultCodeEnabled() ? 1 : 0);
 		if (vval == 5)
 		{
-			Serial2.printf("%s%d", "V", Settings.numericResponses ? 1 : 0);
-			Serial2.printf("%s%d", "X", Settings.longResponses ? 1 : 0);
+			Serial2.printf("%s%d", "V", SREG.resultCodeNumeric() ? 1 : 0);
+			Serial2.printf("%s%d", "X", SREG.resultCodeExtended() ? 1 : 0);
 		}
-		switch (Settings.flowControlMode)
+		switch (SREG.flowControlMode())
 		{
 		case FCM_DISABLED:
 			Serial2.printf("%s%d", "&K", 0);
@@ -934,78 +955,70 @@ ZResult ZModem::execInfo(int vval, uint8_t *vbuf, int vlen, bool isNumber)
 			break;
 		case FCM_BOTH:
 			Serial2.printf("%s%d", "&K", 6);
-			break;		
+			break;
 		case FCM_INVALID:
 			break;
 		}
-		if (Settings.EOLN == CR)
-			Serial2.printf("%s%d", "R", 0);
-		else if (Settings.EOLN == CRLF)
-			Serial2.printf("%s%d", "R", 1);
-		else if (Settings.EOLN == LFCR)
-			Serial2.printf("%s%d", "R", 2);
-		else if (Settings.EOLN == LF)
-			Serial2.printf("%s%d", "R", 3);
 		break;
 	case 2:
-		Serial2.print(Settings.EOLN);
+		println();
 		Serial2.print(WiFi.localIP().toString());
 		break;
 	case 3:
-		Serial2.print(Settings.EOLN);
-		Serial2.print(Settings.wifiSSID);
+		println();
+		Serial2.print(SREG.wifiSSID);
 		break;
 	case 4:
-		Serial2.print(Settings.EOLN);
+		println();
 		Serial2.print(ZMODEM_VERSION);
 		break;
 	case 6:
-		Serial2.print(Settings.EOLN);
+		println();
 		Serial2.print(WiFi.macAddress());
 		break;
 	case 7:
 		struct tm now;
 		if (getLocalTime(&now))
 		{
-			Serial2.print(Settings.EOLN);
+			println();
 			Serial2.print(&now, "%A, %B %d %Y %H:%M:%S");
 		}
 		break;
 	case 8:
-		Serial2.print(Settings.EOLN);
+		println();
 		Serial2.print(compile_date);
 		break;
 	case 9:
-		Serial2.print(Settings.EOLN);
-		Serial2.print(Settings.wifiSSID);
+		println();
+		Serial2.print(SREG.wifiSSID);
 		if (staticIP != nullptr)
 		{
-			Serial2.print(Settings.EOLN);
+			println();
 			Serial2.print(staticIP->toString());
-			Serial2.print(Settings.EOLN);
+			println();
 			Serial2.print(staticSN->toString());
-			Serial2.print(Settings.EOLN);
+			println();
 			Serial2.print(staticGW->toString());
-			Serial2.print(Settings.EOLN);
+			println();
 			Serial2.print(staticDNS->toString());
 		}
 		break;
 	case 11:
-		Serial2.print(Settings.EOLN);
+		println();
 		Serial2.print(ESP.getFreeHeap());
 		break;
 	case 12:
-		Serial2.print(Settings.EOLN);
+		println();
 		Serial2.printf("TX Total bytes: %lu", totalBytesTx);
-		Serial2.print(Settings.EOLN);
+		println();
 		Serial2.printf("RX Total bytes: %lu", totalBytesRx);
-		Serial2.print(Settings.EOLN);
+		println();
 		Serial2.printf("TX Max Rate: %lu bytes/sec", maxRateTx);
-		Serial2.print(Settings.EOLN);
+		println();
 		Serial2.printf("RX Max Rate: %lu bytes/sec", maxRateRx);
 		break;
 	default:
-		Serial2.print(Settings.EOLN);
+		println();
 		return ZERROR;
 	}
 
@@ -1017,7 +1030,7 @@ ZResult ZModem::execTime(int vval, uint8_t *vbuf, int vlen, bool isNumber)
 	struct tm now;
 	if (getLocalTime(&now))
 	{
-		Serial2.print(Settings.EOLN);
+		println();
 		Serial2.print(&now, "%A, %B %d %Y %H:%M:%S");
 		return ZOK;
 	}
@@ -1033,7 +1046,7 @@ ZResult ZModem::execWiFi(int vval, uint8_t *vbuf, int vlen, bool isNumber, const
 		{
 			n = vval;
 		}
-		Serial2.print(Settings.EOLN);
+		println();
 		for (int i = 0; i < n; ++i)
 		{
 			Serial2.print(WiFi.SSID(i));
@@ -1041,7 +1054,7 @@ ZResult ZModem::execWiFi(int vval, uint8_t *vbuf, int vlen, bool isNumber, const
 			Serial2.print(WiFi.RSSI(i));
 			Serial2.print(")");
 			Serial2.print(WiFi.encryptionType(i) == ENC_TYPE_NONE ? " " : "*");
-			Serial2.print(Settings.EOLN);
+			println();
 			delay(10);
 		}
 	}
@@ -1128,43 +1141,12 @@ ZResult ZModem::execWiFi(int vval, uint8_t *vbuf, int vlen, bool isNumber, const
 			digitalWrite(PIN_LED_WIFI, LOW);
 			return ZERROR;
 		}
-		Settings.wifiSSID = ssid;
-		Settings.wifiPSWD = pswd;
+		strcpy(SREG.wifiSSID, ssid);
+		strcpy(SREG.wifiPSWD, pswd);
 		setStaticIPs(ip[0], ip[1], ip[2], ip[3]);
 		digitalWrite(PIN_LED_WIFI, HIGH);
 	}
 	return ZOK;
-}
-
-ZResult ZModem::execEOLN(int vval, uint8_t *vbuf, int vlen, bool isNumber)
-{
-	if (isNumber)
-	{
-		if (vval >= 0 && vval < 4)
-		{
-			switch (vval)
-			{
-			case 0:
-				Settings.EOLN = CR;
-				DPRINTF("EOLN = %s\n", "\\r");
-				break;
-			case 1:
-				Settings.EOLN = CRLF;
-				DPRINTF("EOLN = %s\n", "\\r\\n");
-				break;
-			case 2:
-				Settings.EOLN = LFCR;
-				DPRINTF("EOLN = %s\n", "\\n\\r");
-				break;
-			case 3:
-				Settings.EOLN = LF;
-				DPRINTF("EOLN = %s\n", "\\n");
-				break;
-			}
-			return ZOK;
-		}
-	}
-	return ZERROR;
 }
 
 ZResult ZModem::execBaud(int vval, uint8_t *vbuf, int vlen)
@@ -1174,7 +1156,7 @@ ZResult ZModem::execBaud(int vval, uint8_t *vbuf, int vlen)
 	delay(500);
 	Serial2.end();
 
-	Settings.baudRate = vval;
+	SREG.baudRate = vval;
 	Serial2.begin(vval);
 	digitalWrite(PIN_LED_HS, vval >= DEFAULT_HS_RATE ? HIGH : LOW);
 
@@ -1260,12 +1242,12 @@ ZResult ZModem::execConnect(int vval, uint8_t *vbuf, int vlen, bool isNumber, co
 		}
 		if (socket->connected())
 		{
-			Serial2.print(Settings.EOLN);
+			println();
 			Serial2.printf("%s %d %s:%d", "CONNECTED", socket->id(), socket->host(), socket->port());
 		}
 		else if (socket->answered())
 		{
-			Serial2.print(Settings.EOLN);
+			println();
 			Serial2.printf("%s %d %s:%d", "NO CARRIER", socket->id(), socket->host(), socket->port());
 		}
 	}
@@ -1285,12 +1267,12 @@ ZResult ZModem::execConnect(int vval, uint8_t *vbuf, int vlen, bool isNumber, co
 				ZClient *c = clients.get(i);
 				if (c->connected())
 				{
-					Serial2.print(Settings.EOLN);
+					println();
 					Serial2.printf("%s %d %s:%d", "CONNECTED", c->id(), c->host(), c->port());
 				}
 				else if (socket->answered())
 				{
-					Serial2.print(Settings.EOLN);
+					println();
 					Serial2.printf("%s %d %s:%d", "NO CARRIER", c->id(), c->host(), c->port());
 				}
 			}
@@ -1406,7 +1388,7 @@ ZResult ZModem::execPhonebook(unsigned long vval, uint8_t *vbuf, int vlen, bool 
 		{
 			if (Phonebook.get(i, &pbe) && (!isNumber || vval == 0 || vval == pbe.number) && (strlen(dmodifiers) == 0 || modifierCompare(dmodifiers, pbe.modifiers) == 0))
 			{
-				Serial2.print(Settings.EOLN);
+				println();
 				size_t off = Serial2.print(pbe.number);
 				for (int i = 0; i < 10 - off; i++)
 					Serial2.print(" ");
@@ -1462,6 +1444,38 @@ ZResult ZModem::execPhonebook(unsigned long vval, uint8_t *vbuf, int vlen, bool 
 	return ZOK;
 }
 
+ZResult ZModem::execSRegister(uint8_t *vbuf, int vlen)
+{
+	if (vlen >= 2)
+	{
+		char *cmd = strchr((char *)vbuf, '?');
+		if ((cmd != NULL) && (cmd != (char *)vbuf) && (cmd == (char *)&(vbuf[vlen - 1])))
+		{
+			*cmd = '\0';
+			int snum = atoi((char *)vbuf);
+			if (snum >= 0 && snum < SREG.registerSize())
+			{
+				println();
+				Serial2.print((int)SREG[snum]);
+				return ZOK;
+			}
+		}
+		cmd = strchr((char *)vbuf, '=');
+		if ((cmd != NULL) && (cmd != (char *)vbuf) && (cmd < (char *)&(vbuf[vlen - 1])))
+		{
+			*cmd = '\0';
+			int snum = atoi((char *)vbuf);
+			int sval = atoi((char *)(cmd + 1));
+			if (snum >= 0 && snum < SREG.registerSize() && sval >= 0 && sval <= 255)
+			{
+				SREG[snum] = (uint8_t)sval;
+				return ZOK;
+			}
+		}
+	}
+	return ZERROR;
+}
+
 void ZModem::switchTo(ZMode newMode, ZResult rc)
 {
 	switch (mode)
@@ -1487,7 +1501,7 @@ void ZModem::switchTo(ZMode newMode, ZResult rc)
 		break;
 	case ZCONSOLE_MODE:
 		DPRINTF("Switch to %s mode\n", "CONSOLE");
-		console.begin();
+		console.begin(SREG);
 		break;
 	case ZSTREAM_MODE:
 		DPRINTF("Switch to %s mode\n", "STREAM");
@@ -1497,7 +1511,7 @@ void ZModem::switchTo(ZMode newMode, ZResult rc)
 		break;
 	case ZSHELL_MODE:
 		DPRINTF("Switch to %s mode\n", "SHELL");
-		shell.begin();
+		shell.begin(SREG);
 		break;
 	}
 
@@ -1566,20 +1580,21 @@ void ZModem::begin()
 	}
 	else
 	{
-		Settings.loadUserProfile(0);
+		int num = activeProfile();
+		SREG.loadProfile(num);
 		Phonebook.begin();
 	}
 
-	Serial2.begin(Settings.baudRate, DEFAULT_SERIAL_CONFIG);
+	Serial2.begin(SREG.baudRate, DEFAULT_SERIAL_CONFIG);
 	Serial2.setRxBufferSize(MAX_COMMAND_SIZE);
-	DPRINTF("COM port open at %d bit/s\n", Settings.baudRate);
-	digitalWrite(PIN_LED_HS, Settings.baudRate >= DEFAULT_HS_RATE ? HIGH : LOW);
+	DPRINTF("COM port open at %d bit/s\n", (int)SREG.baudRate);
+	digitalWrite(PIN_LED_HS, SREG.baudRate >= DEFAULT_HS_RATE ? HIGH : LOW);
 
 	httpUpdater.setup(&httpServer);
 
-	if (Settings.wifiSSID.length() > 0)
+	if (strlen(SREG.wifiSSID) > 0)
 	{
-		connectWiFi(Settings.wifiSSID.c_str(), Settings.wifiPSWD.c_str(), staticIP, staticDNS, staticGW, staticSN);
+		connectWiFi(SREG.wifiSSID, SREG.wifiPSWD, staticIP, staticDNS, staticGW, staticSN);
 	}
 
 	showInitMessage();

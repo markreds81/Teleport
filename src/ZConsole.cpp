@@ -13,10 +13,20 @@ ZConsole::~ZConsole()
 {
 }
 
-void ZConsole::begin()
+void ZConsole::begin(ZProfile &profile)
 {
 	state = ZCONSOLE_SHOW_MENU;
 	menu = ZMENU_MAIN;
+	EOLN[0] = profile.carriageReturn();
+	if (profile.resultCodeVerbose())
+	{
+		EOLN[1] = profile.lineFeed();
+		EOLN[2] = '\0';
+	}
+	else
+	{
+		EOLN[1] = '\0';
+	}
 }
 
 void ZConsole::exec(String cmd)
@@ -79,7 +89,7 @@ void ZConsole::exec(String cmd)
 	}
 }
 
-bool ZConsole::done()
+bool ZConsole::done(ZProfile &profile)
 {
 	if (state & ZCONSOLE_SHOW_MENU)
 	{
@@ -88,28 +98,28 @@ bool ZConsole::done()
 		switch (menu)
 		{
 		case ZMENU_MAIN:
-			Serial2.printf("%sMain Menu%s", Settings.EOLN.c_str(), Settings.EOLN.c_str());
-			Serial2.printf("[HOST] name: %s%s", Settings.hostname.c_str(), Settings.EOLN.c_str());
-			Serial2.printf("[WIFI] connection: %s%s", (WiFi.status() == WL_CONNECTED) ? Settings.wifiSSID.c_str() : "Not connected", Settings.EOLN.c_str());
+			Serial2.printf("%sMain Menu%s", EOLN, EOLN);
+			Serial2.printf("[HOST] name: %s%s", profile.hostname, EOLN);
+			Serial2.printf("[WIFI] connection: %s%s", (WiFi.status() == WL_CONNECTED) ? profile.wifiSSID : "Not connected", EOLN);
 			// Serial2.printf("[FLOW] control: %s%s", Settings.flowName.c_str(), Settings.EOLN.c_str());
-			Serial2.printf("[ECHO] keystrokes: %s%s", Settings.doEcho ? "ON" : "OFF", Settings.EOLN.c_str());
+			Serial2.printf("[ECHO] keystrokes: %s%s", profile.echoEnabled() ? "ON" : "OFF", EOLN);
 			// serial.printf("[BBS] host: %s%s",bbsMode.c_str(),EOLNC);
 			// Serial2.printf("[PETSCII] translation: %s%s", Serial2.isPetsciiMode()?"ON":"OFF", Settings.EOLN.c_str());
-			Serial2.printf("[ADD] new phonebook entry%s", Settings.EOLN.c_str());
+			Serial2.printf("[ADD] new phonebook entry%s", EOLN);
 			if (!Phonebook.empty())
 			{
 				PBEntry pbe;
-				Serial2.printf("Phonebook entries:%s", Settings.EOLN.c_str());
+				Serial2.printf("Phonebook entries:%s", EOLN);
 				for (int i = 0; i < Phonebook.size(); i++)
 				{
 					Phonebook.get(i, &pbe);
 					if (strlen(pbe.notes))
-						Serial2.printf("  [%lu] %s (%s)%s", pbe.number, pbe.address, pbe.notes, Settings.EOLN.c_str());
+						Serial2.printf("  [%lu] %s (%s)%s", pbe.number, pbe.address, pbe.notes, EOLN);
 					else
-						Serial2.printf("  [%lu] %s%s", pbe.number, pbe.address, Settings.EOLN.c_str());
+						Serial2.printf("  [%lu] %s%s", pbe.number, pbe.address, EOLN);
 				}
 			}
-			Serial2.printf("%sEnter command or entry or ENTER to exit: ", Settings.EOLN.c_str());
+			Serial2.printf("%sEnter command or entry or ENTER to exit: ", EOLN);
 			break;
 		default:
 			DPRINTF("Show menu: %d\n", menu);

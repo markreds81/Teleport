@@ -1,6 +1,7 @@
 #ifndef ZSHELL_H
 #define ZSHELL_H
 
+#include "ZProfile.h"
 #include <Arduino.h>
 
 #define ZSHELL_SHOW_PROMPT  0x01
@@ -12,12 +13,13 @@ public:
     ZShell();
     virtual ~ZShell();
 
-	void begin();
+	void begin(ZProfile &profile);
     void end();
     void exec(String line);
     bool done();
 private:
     String path;
+    char EOLN[3];
     uint8_t state;
 
     bool isMask(String mask);

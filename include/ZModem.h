@@ -6,6 +6,7 @@
 #include "ZSerial.h"
 #include "ZClient.h"
 #include "ZBuzzer.h"
+#include "ZProfile.h"
 #include "ZShell.h"
 #include "ZConsole.h"
 #include "ZUpdater.h"
@@ -30,6 +31,7 @@ private:
 
 	ZMode mode;
 	ZEscape esc;
+	ZProfile SREG;
 	ZBuzzer buzzer;
 	ZClient *socket;
 	ZShell shell;
@@ -39,13 +41,6 @@ private:
 	ZUpdater httpUpdater;
 	uint8_t buffer[MAX_COMMAND_SIZE];
 	size_t buflen;
-	char CRLF[4];
-	char LFCR[4];
-	char LF[2];
-	char CR[2];
-	char BS;
-	char EC;
-	char ECS[32];
 	String termType;
 	String lastCommand;
 	IPAddress *staticIP = nullptr;
@@ -57,6 +52,7 @@ private:
 	unsigned long maxRateTx = 0;
 	unsigned long maxRateRx = 0;
 
+	void println();
 	char lc(char c);
 	bool asc2pet(char *c);
 	bool processIAC(char *c);
@@ -67,22 +63,23 @@ private:
 	void showInitMessage();
 	void sendResponse(ZResult rc);
 	void sendConnectionNotice(int id);
+	int activeProfile();
+	void setActiveProfile(int num);
 
 	size_t socketWrite(uint8_t c);
 	size_t socketWrite(const uint8_t *buf, size_t size);
 	uint8_t socketRead(unsigned long tmout);
 
 	ZResult execCommand();
-	ZResult execReset();
 	ZResult execInfo(int vval, uint8_t *vbuf, int vlen, bool isNumber);
 	ZResult execTime(int vval, uint8_t *vbuf, int vlen, bool isNumber);
 	ZResult execWiFi(int vval, uint8_t *vbuf, int vlen, bool isNumber, const char *dmodifiers);
-	ZResult execEOLN(int vval, uint8_t *vbuf, int vlen, bool isNumber);
 	ZResult execBaud(int vval, uint8_t *vbuf, int vlen);
 	ZResult execDial(unsigned long vval, uint8_t *vbuf, int vlen, bool isNumber, const char *dmodifiers);
 	ZResult execConnect(int vval, uint8_t *vbuf, int vlen, bool isNumber, const char *dmodifiers);
 	ZResult execHangup(int vval, uint8_t *vbuf, int vlen, bool isNumber);
 	ZResult execPhonebook(unsigned long vval, uint8_t *vbuf, int vlen, bool isNumber, const char *dmodifiers);
+	ZResult execSRegister(uint8_t *vbuf, int vlen);
 
 	void switchTo(ZMode newMode, ZResult rc = ZIGNORE);
 
@@ -111,7 +108,7 @@ public:
 			if (Serial2.available() > 0 && readSerialStream())
 			{
 				ZResult rc = execCommand();
-				if (!Settings.suppressResponses)
+				if (SREG.resultCodeEnabled())
 				{
 					sendResponse(rc);
 				}
@@ -127,7 +124,7 @@ public:
 				buffer[0] = '\0';
 				buflen = 0;
 			}
-			if (console.done())
+			if (console.done(SREG))
 			{
 				switchTo(ZCOMMAND_MODE, ZOK);
 			}
@@ -142,7 +139,7 @@ public:
 					totalBytesTx++;
 					// read a char at time and process
 					char c = Serial2.read();
-					if (c != EC || (millis() - esc.gt1) < 1000 || esc.len >= sizeof(esc.buf))
+					if (c != SREG[2] || (millis() - esc.gt1) < SREG.guardTime() || esc.len >= sizeof(esc.buf))
 					{
 						if (esc.len)
 						{
@@ -163,7 +160,7 @@ public:
 					}
 				}
 				// check escape sequence
-				if (esc.gt2 && (millis() - esc.gt2) > 1000)
+				if (esc.gt2 && (millis() - esc.gt2) > SREG.guardTime())
 				{
 					esc.gt2 = 0;
 					esc.len = 0;
