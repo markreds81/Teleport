@@ -1,7 +1,6 @@
 #include "ZConsole.h"
 #include "ZSerial.h"
 #include "ZDebug.h"
-#include "ZSettings.h"
 #include "ZPhonebook.h"
 #include <WiFi.h>
 

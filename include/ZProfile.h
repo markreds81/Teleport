@@ -18,10 +18,8 @@ public:
     ZProfile();
     ~ZProfile();
 
-    void begin(int num);
-    void loadFactoryProfile();
-    bool loadProfile(int num);
-    bool saveProfile(int num);
+    void loadProfile(int num);
+    void saveProfile(int num);
 
     uint8_t &operator[](int index)
     {
@@ -110,6 +108,12 @@ public:
     inline FlowControlMode flowControlMode()
     {
         return FlowControlMode(regs[39] & 0x07);
+    }
+
+    inline void setFlowControlMode(FlowControlMode mode)
+    {
+        regs[39] &= ~0x07;
+        regs[39] |= mode;
     }
 };
 

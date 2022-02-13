@@ -445,7 +445,12 @@ int ZModem::activeProfile()
 	File file = SPIFFS.open("/profile/active", "r");
 	if (file)
 	{
-		result = file.readString().toInt();
+		String line = file.readString();
+		if (!line.isEmpty())
+		{
+			result = line.toInt();
+			DPRINTF("Active profile: %d\n", result);
+		}			
 		file.close();
 	}
 
@@ -457,8 +462,9 @@ void ZModem::setActiveProfile(int num)
 	File file = SPIFFS.open("/profile/active", "w");
 	if (file)
 	{
-		file.write(num);
+		file.print(num);
 		file.close();
+		DPRINTF("Set active profile: %d\n", num);
 	}
 }
 
@@ -842,25 +848,28 @@ ZResult ZModem::execCommand()
 					if (!isNumber || vval >= FCM_INVALID)
 						rc = ZERROR;
 					else
-						Serial2.setFlowControl((FlowControlMode)vval);
+					{
+						SREG.setFlowControlMode((FlowControlMode)vval);
+						Serial2.setFlowControl(SREG.flowControlMode());
+					}
 					break;
 				case 'l':
 					DPRINTLN("l");
 					break;
 				case 'w':
-					if (isNumber && vval >= 0 && vval < 2)
+					if (isNumber && vval >= 0 && vval < MAX_USER_PROFILES)
 						SREG.saveProfile(int(vval));
 					else
 						rc = ZERROR;
 					break;
 				case 'f':
-					if (isNumber && vval >= 0 && vval < 2)
+					if (isNumber && vval >= 0 && vval < MAX_USER_PROFILES)
 						SREG.loadProfile(-1);
 					else
 						rc = ZERROR;
 					break;
 				case 'y':
-					if (isNumber && vval >= 0 && vval < 2)
+					if (isNumber && vval >= 0 && vval < MAX_USER_PROFILES)
 						setActiveProfile(vval);
 					else
 						rc = ZERROR;
@@ -1109,7 +1118,7 @@ ZResult ZModem::execWiFi(int vval, uint8_t *vbuf, int vlen, bool isNumber, const
 					}
 					for (int i = 0; i < 4; i++)
 					{
-						ip[i] = ZSettings::parseIP(comPos[i] + 1);
+						ip[i] = parseIP(comPos[i] + 1);
 						if (ip[i] == NULL)
 						{
 							while (--i >= 0)
@@ -1520,6 +1529,49 @@ void ZModem::switchTo(ZMode newMode, ZResult rc)
 	mode = newMode;
 }
 
+IPAddress *ZModem::parseIP(const char *str)
+{
+    uint8_t dots[4];
+    int dotDex = 0;
+    char *le = (char *)str;
+    const char *ld = str + strlen(str);
+    
+    if (strlen(str) < 7)
+    {
+        return NULL;
+    }
+        
+    for (char *e = le; e <= ld; e++)
+    {
+        if ((*e == '.') || (e == ld))
+        {
+            if (le == e)
+            {
+                break;
+            }                
+            *e = 0;
+            String sdot = le;
+            sdot.trim();
+            if ((sdot.length() == 0) || (dotDex > 3))
+            {
+                dotDex = 99;
+                break;
+            }
+            dots[dotDex++] = (uint8_t)atoi(sdot.c_str());
+            if (e == ld)
+                le = e;
+            else
+                le = e + 1;
+        }
+    }
+    if (dotDex != 4 || *le != 0)
+    {
+        return nullptr;
+    }
+        
+    return new IPAddress(dots[0], dots[1], dots[2], dots[3]);
+}
+
 void ZModem::factoryReset()
 {
 	DPRINTLN("Factory Reset!");
@@ -1553,7 +1605,7 @@ void ZModem::begin()
 	pinMode(PIN_LED_DATA, OUTPUT);
 	pinMode(PIN_LED_WIFI, OUTPUT);
 
-	//buzzer.playTuneAsync();
+	buzzer.playTuneAsync();
 
 	digitalWrite(PIN_LED_DATA, HIGH);
 	delay(200);
@@ -1571,17 +1623,18 @@ void ZModem::begin()
 	{
 		SPIFFS.format();
 		SPIFFS.begin();
-		SREG.loadFactoryProfile();
+		SREG.loadProfile(-1);
 		DPRINTLN("SPIFFS Formatted.");
 	}
 	else
 	{
-		SREG.begin(activeProfile());
+		SREG.loadProfile(activeProfile());
 		Phonebook.begin();
 	}
 
 	Serial2.begin(SREG.baudRate, DEFAULT_SERIAL_CONFIG);
 	Serial2.setRxBufferSize(MAX_COMMAND_SIZE);
+	Serial2.setFlowControl(SREG.flowControlMode());
 	DPRINTF("COM port open at %d bit/s\n", SREG.baudRate);
 	digitalWrite(PIN_LED_HS, SREG.baudRate >= DEFAULT_HS_RATE ? HIGH : LOW);
 

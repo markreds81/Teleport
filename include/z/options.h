@@ -22,5 +22,6 @@
 #define FLOW_CTRL_RX_THRESH_XOFF 200
 #define ESCAPE_BUF_LEN 10
 #define BUZZER_CHANNEL 0
+#define MAX_USER_PROFILES 3
 
 #endif

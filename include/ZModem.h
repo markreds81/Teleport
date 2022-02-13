@@ -5,12 +5,11 @@
 #include "z/types.h"
 #include "ZSerial.h"
 #include "ZClient.h"
-//#include "ZBuzzer.h"
+#include "ZBuzzer.h"
 #include "ZProfile.h"
 #include "ZShell.h"
 #include "ZConsole.h"
 #include "ZUpdater.h"
-#include "ZSettings.h"
 #include "ZDebug.h"
 #include <Arduino.h>
 #include <LinkedList.h>
@@ -32,7 +31,7 @@ private:
 	ZMode mode;
 	ZEscape esc;
 	ZProfile SREG;
-	//ZBuzzer buzzer;
+	ZBuzzer buzzer;
 	ZClient *socket;
 	ZShell shell;
 	ZConsole console;
@@ -82,6 +81,8 @@ private:
 	ZResult execSRegister(uint8_t *vbuf, int vlen);
 
 	void switchTo(ZMode newMode, ZResult rc = ZIGNORE);
+
+	static IPAddress *parseIP(const char *str);
 
 public:
 	ZModem();
