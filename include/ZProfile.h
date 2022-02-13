@@ -9,19 +9,19 @@ class ZProfile
 private:
     uint8_t regs[112];
 
-    void reset();
-
 public:
     char hostname[64];
     char wifiSSID[32];
     char wifiPSWD[64];
-    unsigned long baudRate;
+    int baudRate;
 
     ZProfile();
     ~ZProfile();
 
-    void loadProfile(int num);
-    void saveProfile(int num);
+    void begin(int num);
+    void loadFactoryProfile();
+    bool loadProfile(int num);
+    bool saveProfile(int num);
 
     uint8_t &operator[](int index)
     {

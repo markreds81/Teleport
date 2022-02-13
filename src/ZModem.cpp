@@ -341,7 +341,7 @@ void ZModem::showInitMessage()
 	Serial2.printf("sdk=%s chipid=%d cpu@%d", ESP.getSdkVersion(), ESP.getChipRevision(), ESP.getCpuFreqMHz());
 	println();
 
-	Serial2.printf("totsize=%dk hsize=%dk fsize=%dk speed=%dm", (ESP.getFlashChipSize() / 1024), (ESP.getFreeHeap() / 1024), SPIFFS.totalBytes() / 1024, (ESP.getFlashChipSpeed() / 1000000));
+	Serial2.printf("flash=%dk heap=%dk spiffs=%dk speed=%dm", (ESP.getFlashChipSize() / 1024), (ESP.getFreeHeap() / 1024), SPIFFS.totalBytes() / 1024, (ESP.getFlashChipSpeed() / 1000000));
 	println();
 
 	if (strlen(SREG.wifiSSID) > 0)
@@ -440,7 +440,7 @@ void ZModem::sendConnectionNotice(int id)
 
 int ZModem::activeProfile()
 {
-	int result = 0;
+	int result = -1;
 
 	File file = SPIFFS.open("/profile/active", "r");
 	if (file)
@@ -449,11 +449,6 @@ int ZModem::activeProfile()
 		file.close();
 	}
 
-	if (result < 0)
-	{
-		result = 0;
-	}
-	
 	return result;
 }
 
@@ -925,7 +920,7 @@ ZResult ZModem::execInfo(int vval, uint8_t *vbuf, int vlen, bool isNumber)
 	case 5:
 		println();
 		Serial2.print("AT");
-		Serial2.printf("%s%d", "B", (int)SREG.baudRate);
+		Serial2.printf("%s%d", "B", SREG.baudRate);
 		Serial2.printf("%s%d", "E", SREG.echoEnabled() ? 1 : 0);
 		Serial2.printf("%s%d", "Q", SREG.resultCodeEnabled() ? 1 : 0);
 		if (vval == 5)
@@ -1558,7 +1553,7 @@ void ZModem::begin()
 	pinMode(PIN_LED_DATA, OUTPUT);
 	pinMode(PIN_LED_WIFI, OUTPUT);
 
-	buzzer.playTuneAsync();
+	//buzzer.playTuneAsync();
 
 	digitalWrite(PIN_LED_DATA, HIGH);
 	delay(200);
@@ -1576,18 +1571,18 @@ void ZModem::begin()
 	{
 		SPIFFS.format();
 		SPIFFS.begin();
+		SREG.loadFactoryProfile();
 		DPRINTLN("SPIFFS Formatted.");
 	}
 	else
 	{
-		int num = activeProfile();
-		SREG.loadProfile(num);
+		SREG.begin(activeProfile());
 		Phonebook.begin();
 	}
 
 	Serial2.begin(SREG.baudRate, DEFAULT_SERIAL_CONFIG);
 	Serial2.setRxBufferSize(MAX_COMMAND_SIZE);
-	DPRINTF("COM port open at %d bit/s\n", (int)SREG.baudRate);
+	DPRINTF("COM port open at %d bit/s\n", SREG.baudRate);
 	digitalWrite(PIN_LED_HS, SREG.baudRate >= DEFAULT_HS_RATE ? HIGH : LOW);
 
 	httpUpdater.setup(&httpServer);
