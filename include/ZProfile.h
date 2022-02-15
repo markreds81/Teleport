@@ -115,6 +115,28 @@ public:
         regs[39] &= ~0x07;
         regs[39] |= mode;
     }
+
+    inline int speakerVolume()
+    {
+        return regs[22] & 0x03;
+    }
+
+    inline void setSpeakerVolume(int volume)
+    {
+        regs[22] &= ~0x03;
+        regs[22] |= (volume & 0x03);
+    }
+
+    inline int speakerControl()
+    {
+        return (regs[22] >> 2) & 0x03;
+    }
+
+    inline void setSpeakerControl(int control)
+    {
+        regs[22] &= ~0x0C;
+        regs[22] |= ((control & 0x03) << 2);
+    }
 };
 
 #endif

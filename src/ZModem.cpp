@@ -96,15 +96,6 @@ ZModem::~ZModem()
 {
 }
 
-void ZModem::println()
-{
-	Serial2.print(SREG.carriageReturn());
-	if (SREG.resultCodeVerbose())
-	{
-		Serial2.print(SREG.lineFeed());
-	}
-}
-
 char ZModem::lc(char c)
 {
 	if ((c >= 65) && (c <= 90))
@@ -332,17 +323,24 @@ bool ZModem::readSerialStream()
 	return crReceived && buflen > 0;
 }
 
-void ZModem::showInitMessage()
+void ZModem::sendNewline()
 {
-	println();
+	Serial2.print(SREG.carriageReturn());
+	if (SREG.resultCodeVerbose())
+	{
+		Serial2.print(SREG.lineFeed());
+	}
+}
+
+void ZModem::sendAnnouncement()
+{
+	sendNewline();
 	Serial2.printf("%s Firmware v%s (%s)", ZMODEM_APPNAME, ZMODEM_VERSION, ZMODEM_CODENAME);
-	println();
-
+	sendNewline();
 	Serial2.printf("sdk=%s chipid=%d cpu@%d", ESP.getSdkVersion(), ESP.getChipRevision(), ESP.getCpuFreqMHz());
-	println();
-
+	sendNewline();
 	Serial2.printf("flash=%dk heap=%dk spiffs=%dk speed=%dm", (ESP.getFlashChipSize() / 1024), (ESP.getFreeHeap() / 1024), SPIFFS.totalBytes() / 1024, (ESP.getFlashChipSpeed() / 1000000));
-	println();
+	sendNewline();
 
 	if (strlen(SREG.wifiSSID) > 0)
 	{
@@ -359,10 +357,242 @@ void ZModem::showInitMessage()
 	{
 		Serial2.print("INITIALIZED");
 	}
-	println();
+	sendNewline();
 	Serial2.print("READY.");
-	println();
+	sendNewline();
 	Serial2.flush();
+}
+
+void ZModem::sendConfiguration()
+{
+	ZProfile sp;
+
+	sendNewline();
+	Serial2.printf("ACTIVE PROFILE: %d %s", SREG.baudRate, SREG.wifiSSID);
+	sendNewline();
+	Serial2.printf("%s%d", "B", 0);
+	Serial2.print(' ');
+	Serial2.printf("%s%d", "E", SREG.echoEnabled() ? 1 : 0);
+	Serial2.print(' ');
+	Serial2.printf("%s%d", "L", SREG.speakerVolume());
+	Serial2.print(' ');
+	Serial2.printf("%s%d", "M", SREG.speakerControl());
+	Serial2.print(' ');
+	Serial2.printf("%s%d", "N", 0);
+	Serial2.print(' ');
+	Serial2.printf("%s%d", "Q", SREG.resultCodeEnabled() ? 1 : 0);
+	Serial2.print(' ');
+	Serial2.print('T');
+	Serial2.print(' ');
+	Serial2.printf("%s%d", "V", SREG.resultCodeNumeric() ? 1 : 0);
+	Serial2.print(' ');
+	Serial2.printf("%s%d", "W", 0);
+	Serial2.print(' ');
+	Serial2.printf("%s%d", "X", SREG.resultCodeExtended() ? 1 : 0);
+	Serial2.print(' ');
+	Serial2.printf("%s%d", "Y", 0);
+	Serial2.print(' ');
+	Serial2.printf("%s%d", "&C", 0);
+	Serial2.print(' ');
+	Serial2.printf("%s%d", "&D", 0);
+	Serial2.print(' ');
+	Serial2.printf("%s%d", "&G", 0);
+	Serial2.print(' ');
+	Serial2.printf("%s%d", "&J", 0);
+	Serial2.print(' ');
+	switch (SREG.flowControlMode())
+	{
+	case FCM_DISABLED:
+		Serial2.printf("%s%d", "&K", 0);
+		break;
+	case FCM_UNUSED1:
+		Serial2.printf("%s%d", "&K", 1);
+		break;
+	case FCM_UNUSED2:
+		Serial2.printf("%s%d", "&K", 2);
+		break;
+	case FCM_HARDWARE:
+		Serial2.printf("%s%d", "&K", 3);
+		break;
+	case FCM_SOFTWARE:
+		Serial2.printf("%s%d", "&K", 4);
+		break;
+	case FCM_TRANSPARENT:
+		Serial2.printf("%s%d", "&K", 5);
+		break;
+	case FCM_BOTH:
+		Serial2.printf("%s%d", "&K", 6);
+		break;
+	case FCM_INVALID:
+		break;
+	}
+	Serial2.print(' ');
+	Serial2.printf("%s%d", "&Q", 0);
+	Serial2.print(' ');
+	Serial2.printf("%s%d", "&R", 0);
+	Serial2.print(' ');
+	Serial2.printf("%s%d", "&S", 0);
+	Serial2.print(' ');
+	Serial2.printf("%s%d", "&T", 0);
+	Serial2.print(' ');
+	Serial2.printf("%s%d", "&X", 0);
+	Serial2.print(' ');
+	Serial2.printf("%s%d", "&Y", 0);
+	sendNewline();
+	Serial2.printf("S%02d:%03d", 0, SREG[0]);
+	Serial2.print(' ');
+	Serial2.printf("S%02d:%03d", 1, SREG[1]);
+	Serial2.print(' ');
+	Serial2.printf("S%02d:%03d", 2, SREG[2]);
+	Serial2.print(' ');
+	Serial2.printf("S%02d:%03d", 3, SREG[3]);
+	Serial2.print(' ');
+	Serial2.printf("S%02d:%03d", 4, SREG[4]);
+	Serial2.print(' ');
+	Serial2.printf("S%02d:%03d", 5, SREG[5]);
+	Serial2.print(' ');
+	Serial2.printf("S%02d:%03d", 6, SREG[6]);
+	Serial2.print(' ');
+	Serial2.printf("S%02d:%03d", 7, SREG[7]);
+	Serial2.print(' ');
+	Serial2.printf("S%02d:%03d", 8, SREG[8]);
+	Serial2.print(' ');
+	Serial2.printf("S%02d:%03d", 9, SREG[9]);
+	Serial2.print(' ');
+	sendNewline();
+	Serial2.printf("S%02d:%03d", 10, SREG[10]);
+	Serial2.print(' ');
+	Serial2.printf("S%02d:%03d", 11, SREG[11]);
+	Serial2.print(' ');
+	Serial2.printf("S%02d:%03d", 12, SREG[12]);
+	Serial2.print(' ');
+	Serial2.printf("S%02d:%03d", 18, SREG[18]);
+	Serial2.print(' ');
+	Serial2.printf("S%02d:%03d", 25, SREG[25]);
+	Serial2.print(' ');
+	Serial2.printf("S%02d:%03d", 26, SREG[26]);
+	Serial2.print(' ');
+	Serial2.printf("S%02d:%03d", 36, SREG[36]);
+	Serial2.print(' ');
+	Serial2.printf("S%02d:%03d", 37, SREG[37]);
+	Serial2.print(' ');
+	Serial2.printf("S%02d:%03d", 38, SREG[38]);
+	Serial2.print(' ');
+	Serial2.printf("S%02d:%03d", 46, SREG[46]);
+	sendNewline();
+	Serial2.printf("S%02d:%03d", 48, SREG[48]);
+	Serial2.print(' ');
+	Serial2.printf("S%02d:%03d", 95, SREG[95]);
+	sendNewline();
+
+	for (int num = 0; num < MAX_USER_PROFILES; num++)
+	{
+		sp.loadProfile(num);
+		sendNewline();
+		Serial2.printf("STORED PROFILE %d: %d %s", num, sp.baudRate, sp.wifiSSID);
+		sendNewline();
+		Serial2.printf("%s%d", "B", 0);
+		Serial2.print(' ');
+		Serial2.printf("%s%d", "E", sp.echoEnabled() ? 1 : 0);
+		Serial2.print(' ');
+		Serial2.printf("%s%d", "L", sp.speakerVolume());
+		Serial2.print(' ');
+		Serial2.printf("%s%d", "M", sp.speakerControl());
+		Serial2.print(' ');
+		Serial2.printf("%s%d", "N", 0);
+		Serial2.print(' ');
+		Serial2.printf("%s%d", "Q", sp.resultCodeEnabled() ? 1 : 0);
+		Serial2.print(' ');
+		Serial2.print('T');
+		Serial2.print(' ');
+		Serial2.printf("%s%d", "V", sp.resultCodeNumeric() ? 1 : 0);
+		Serial2.print(' ');
+		Serial2.printf("%s%d", "W", 0);
+		Serial2.print(' ');
+		Serial2.printf("%s%d", "X", sp.resultCodeExtended() ? 1 : 0);
+		Serial2.print(' ');
+		Serial2.printf("%s%d", "Y", 0);
+		Serial2.print(' ');
+		Serial2.printf("%s%d", "&C", 0);
+		Serial2.print(' ');
+		Serial2.printf("%s%d", "&D", 0);
+		Serial2.print(' ');
+		Serial2.printf("%s%d", "&G", 0);
+		Serial2.print(' ');
+		Serial2.printf("%s%d", "&J", 0);
+		Serial2.print(' ');
+		switch (sp.flowControlMode())
+		{
+		case FCM_DISABLED:
+			Serial2.printf("%s%d", "&K", 0);
+			break;
+		case FCM_UNUSED1:
+			Serial2.printf("%s%d", "&K", 1);
+			break;
+		case FCM_UNUSED2:
+			Serial2.printf("%s%d", "&K", 2);
+			break;
+		case FCM_HARDWARE:
+			Serial2.printf("%s%d", "&K", 3);
+			break;
+		case FCM_SOFTWARE:
+			Serial2.printf("%s%d", "&K", 4);
+			break;
+		case FCM_TRANSPARENT:
+			Serial2.printf("%s%d", "&K", 5);
+			break;
+		case FCM_BOTH:
+			Serial2.printf("%s%d", "&K", 6);
+			break;
+		case FCM_INVALID:
+			break;
+		}
+		Serial2.print(' ');
+		Serial2.printf("%s%d", "&Q", 0);
+		Serial2.print(' ');
+		Serial2.printf("%s%d", "&R", 0);
+		Serial2.print(' ');
+		Serial2.printf("%s%d", "&S", 0);
+		Serial2.print(' ');
+		Serial2.printf("%s%d", "&T", 0);
+		Serial2.print(' ');
+		Serial2.printf("%s%d", "&X", 0);
+		Serial2.print(' ');
+		Serial2.printf("%s%d", "&Y", 0);
+		sendNewline();
+		Serial2.printf("S%02d:%03d", 0, SREG[0]);
+		Serial2.print(' ');
+		Serial2.printf("S%02d:%03d", 2, SREG[2]);
+		Serial2.print(' ');
+		Serial2.printf("S%02d:%03d", 6, SREG[6]);
+		Serial2.print(' ');
+		Serial2.printf("S%02d:%03d", 7, SREG[7]);
+		Serial2.print(' ');
+		Serial2.printf("S%02d:%03d", 8, SREG[8]);
+		Serial2.print(' ');
+		Serial2.printf("S%02d:%03d", 9, SREG[9]);
+		Serial2.print(' ');
+		Serial2.printf("S%02d:%03d", 10, SREG[10]);
+		Serial2.print(' ');
+		Serial2.printf("S%02d:%03d", 11, SREG[11]);
+		Serial2.print(' ');
+		Serial2.printf("S%02d:%03d", 12, SREG[12]);
+		Serial2.print(' ');
+		Serial2.printf("S%02d:%03d", 18, SREG[18]);
+		sendNewline();
+		Serial2.printf("S%02d:%03d", 36, SREG[36]);
+		Serial2.print(' ');
+		Serial2.printf("S%02d:%03d", 37, SREG[37]);
+		Serial2.print(' ');
+		Serial2.printf("S%02d:%03d", 40, SREG[40]);
+		Serial2.print(' ');
+		Serial2.printf("S%02d:%03d", 41, SREG[41]);
+		Serial2.print(' ');
+		Serial2.printf("S%02d:%03d", 46, SREG[46]);
+		Serial2.print(' ');
+		Serial2.printf("S%02d:%03d", 95, SREG[95]);
+		sendNewline();
+	}
 }
 
 void ZModem::sendResponse(ZResult rc)
@@ -370,9 +600,9 @@ void ZModem::sendResponse(ZResult rc)
 	if (rc < ZIGNORE)
 	{
 		DPRINTF("Response: %s\n", RESULT_CODES_V1[rc]);
-		println();
+		sendNewline();
 		Serial2.print(SREG.resultCodeNumeric() ? RESULT_CODES_V0[rc] : RESULT_CODES_V1[rc]);
-		println();
+		sendNewline();
 	}
 	else
 	{
@@ -382,7 +612,7 @@ void ZModem::sendResponse(ZResult rc)
 
 void ZModem::sendConnectionNotice(int id)
 {
-	println();
+	sendNewline();
 	if (SREG.resultCodeNumeric())
 	{
 		if (!SREG.resultCodeExtended())
@@ -435,7 +665,7 @@ void ZModem::sendConnectionNotice(int id)
 			Serial2.print(id);
 		}
 	}
-	println();
+	sendNewline();
 }
 
 int ZModem::activeProfile()
@@ -744,10 +974,16 @@ ZResult ZModem::execCommand()
 				rc = execInfo(vval, vbuf, vlen, isNumber);
 				break;
 			case 'l':
-				DPRINTLN("l");
+				if (isNumber && vval >= 0 && vval <= 3)
+					SREG.setSpeakerVolume(vval);
+				else
+					rc = ZERROR;
 				break;
 			case 'm':
-				DPRINTLN("m");
+				if (isNumber && vval >= 0 && vval <= 3)
+					SREG.setSpeakerControl(vval);
+				else
+					rc = ZERROR;
 				break;
 			case 'y':
 				rc = isNumber ? ZOK : ZERROR;
@@ -856,6 +1092,9 @@ ZResult ZModem::execCommand()
 				case 'l':
 					DPRINTLN("l");
 					break;
+				case 'v':
+					sendConfiguration();
+					break;
 				case 'w':
 					if (isNumber && vval >= 0 && vval < MAX_USER_PROFILES)
 						SREG.saveProfile(int(vval));
@@ -923,106 +1162,71 @@ ZResult ZModem::execInfo(int vval, uint8_t *vbuf, int vlen, bool isNumber)
 	switch (vval)
 	{
 	case 0:
-		showInitMessage();
+		sendAnnouncement();
 		break;
 	case 1:
 	case 5:
-		println();
-		Serial2.print("AT");
-		Serial2.printf("%s%d", "B", SREG.baudRate);
-		Serial2.printf("%s%d", "E", SREG.echoEnabled() ? 1 : 0);
-		Serial2.printf("%s%d", "Q", SREG.resultCodeEnabled() ? 1 : 0);
-		if (vval == 5)
-		{
-			Serial2.printf("%s%d", "V", SREG.resultCodeNumeric() ? 1 : 0);
-			Serial2.printf("%s%d", "X", SREG.resultCodeExtended() ? 1 : 0);
-		}
-		switch (SREG.flowControlMode())
-		{
-		case FCM_DISABLED:
-			Serial2.printf("%s%d", "&K", 0);
-			break;
-		case FCM_UNUSED1:
-			Serial2.printf("%s%d", "&K", 1);
-			break;
-		case FCM_UNUSED2:
-			Serial2.printf("%s%d", "&K", 2);
-			break;
-		case FCM_HARDWARE:
-			Serial2.printf("%s%d", "&K", 3);
-			break;
-		case FCM_SOFTWARE:
-			Serial2.printf("%s%d", "&K", 4);
-			break;
-		case FCM_TRANSPARENT:
-			Serial2.printf("%s%d", "&K", 5);
-			break;
-		case FCM_BOTH:
-			Serial2.printf("%s%d", "&K", 6);
-			break;
-		case FCM_INVALID:
-			break;
-		}
+		sendConfiguration();
 		break;
 	case 2:
-		println();
+		sendNewline();
 		Serial2.print(WiFi.localIP().toString());
 		break;
 	case 3:
-		println();
+		sendNewline();
 		Serial2.print(SREG.wifiSSID);
 		break;
 	case 4:
-		println();
+		sendNewline();
 		Serial2.print(ZMODEM_VERSION);
 		break;
 	case 6:
-		println();
+		sendNewline();
 		Serial2.print(WiFi.macAddress());
 		break;
 	case 7:
 		struct tm now;
 		if (getLocalTime(&now))
 		{
-			println();
+			sendNewline();
 			Serial2.print(&now, "%A, %B %d %Y %H:%M:%S");
 		}
 		break;
 	case 8:
-		println();
+		sendNewline();
 		Serial2.print(compile_date);
 		break;
 	case 9:
-		println();
+		sendNewline();
 		Serial2.print(SREG.wifiSSID);
 		if (staticIP != nullptr)
 		{
-			println();
+			sendNewline();
 			Serial2.print(staticIP->toString());
-			println();
+			sendNewline();
 			Serial2.print(staticSN->toString());
-			println();
+			sendNewline();
 			Serial2.print(staticGW->toString());
-			println();
+			sendNewline();
 			Serial2.print(staticDNS->toString());
 		}
 		break;
 	case 11:
-		println();
+		sendNewline();
 		Serial2.print(ESP.getFreeHeap());
 		break;
 	case 12:
-		println();
+		sendNewline();
 		Serial2.printf("TX Total bytes: %lu", totalBytesTx);
-		println();
+		sendNewline();
 		Serial2.printf("RX Total bytes: %lu", totalBytesRx);
-		println();
+		sendNewline();
 		Serial2.printf("TX Max Rate: %lu bytes/sec", maxRateTx);
-		println();
+		sendNewline();
 		Serial2.printf("RX Max Rate: %lu bytes/sec", maxRateRx);
 		break;
 	default:
-		println();
+		sendNewline();
 		return ZERROR;
 	}
 
@@ -1034,7 +1238,7 @@ ZResult ZModem::execTime(int vval, uint8_t *vbuf, int vlen, bool isNumber)
 	struct tm now;
 	if (getLocalTime(&now))
 	{
-		println();
+		sendNewline();
 		Serial2.print(&now, "%A, %B %d %Y %H:%M:%S");
 		return ZOK;
 	}
@@ -1050,7 +1254,7 @@ ZResult ZModem::execWiFi(int vval, uint8_t *vbuf, int vlen, bool isNumber, const
 		{
 			n = vval;
 		}
-		println();
+		sendNewline();
 		for (int i = 0; i < n; ++i)
 		{
 			Serial2.print(WiFi.SSID(i));
@@ -1058,7 +1262,7 @@ ZResult ZModem::execWiFi(int vval, uint8_t *vbuf, int vlen, bool isNumber, const
 			Serial2.print(WiFi.RSSI(i));
 			Serial2.print(")");
 			Serial2.print(WiFi.encryptionType(i) == ENC_TYPE_NONE ? " " : "*");
-			println();
+			sendNewline();
 			delay(10);
 		}
 	}
@@ -1246,12 +1450,12 @@ ZResult ZModem::execConnect(int vval, uint8_t *vbuf, int vlen, bool isNumber, co
 		}
 		if (socket->connected())
 		{
-			println();
+			sendNewline();
 			Serial2.printf("%s %d %s:%d", "CONNECTED", socket->id(), socket->host(), socket->port());
 		}
 		else if (socket->answered())
 		{
-			println();
+			sendNewline();
 			Serial2.printf("%s %d %s:%d", "NO CARRIER", socket->id(), socket->host(), socket->port());
 		}
 	}
@@ -1271,12 +1475,12 @@ ZResult ZModem::execConnect(int vval, uint8_t *vbuf, int vlen, bool isNumber, co
 				ZClient *c = clients.get(i);
 				if (c->connected())
 				{
-					println();
+					sendNewline();
 					Serial2.printf("%s %d %s:%d", "CONNECTED", c->id(), c->host(), c->port());
 				}
 				else if (socket->answered())
 				{
-					println();
+					sendNewline();
 					Serial2.printf("%s %d %s:%d", "NO CARRIER", c->id(), c->host(), c->port());
 				}
 			}
@@ -1392,7 +1596,7 @@ ZResult ZModem::execPhonebook(unsigned long vval, uint8_t *vbuf, int vlen, bool 
 		{
 			if (Phonebook.get(i, &pbe) && (!isNumber || vval == 0 || vval == pbe.number) && (strlen(dmodifiers) == 0 || modifierCompare(dmodifiers, pbe.modifiers) == 0))
 			{
-				println();
+				sendNewline();
 				size_t off = Serial2.print(pbe.number);
 				for (int i = 0; i < 10 - off; i++)
 					Serial2.print(" ");
@@ -1459,7 +1663,7 @@ ZResult ZModem::execSRegister(uint8_t *vbuf, int vlen)
 			int snum = atoi((char *)vbuf);
 			if (snum >= 0 && snum < SREG.registerSize())
 			{
-				println();
+				sendNewline();
 				Serial2.print((int)SREG[snum]);
 				return ZOK;
 			}
@@ -1645,5 +1849,5 @@ void ZModem::begin()
 		connectWiFi(SREG.wifiSSID, SREG.wifiPSWD, staticIP, staticDNS, staticGW, staticSN);
 	}
 
-	showInitMessage();
+	sendAnnouncement();
 }

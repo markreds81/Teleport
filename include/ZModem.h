@@ -28,6 +28,10 @@ private:
 	static const unsigned char PET2ASC_TABLE[256];
 	static const unsigned char ASC2PET_TABLE[256];
 
+	static char lc(char c);
+	static bool asc2pet(char *c);
+	static int modifierCompare(const char *ma, const char *m2);
+
 	ZMode mode;
 	ZEscape esc;
 	ZProfile SREG;
@@ -51,17 +55,16 @@ private:
 	unsigned long maxRateTx = 0;
 	unsigned long maxRateRx = 0;
 
-	void println();
-	char lc(char c);
-	bool asc2pet(char *c);
 	bool processIAC(char *c);
-	int modifierCompare(const char *ma, const char *m2);
 	void setStaticIPs(IPAddress *ip, IPAddress *dns, IPAddress *gateway, IPAddress *subnet);
 	bool connectWiFi(const char *ssid, const char *pswd, IPAddress *ip, IPAddress *dns, IPAddress *gateway, IPAddress *subnet);
 	bool readSerialStream();
-	void showInitMessage();
+	void sendNewline();
+	void sendAnnouncement();
+	void sendConfiguration();
 	void sendResponse(ZResult rc);
 	void sendConnectionNotice(int id);
+	
 	int activeProfile();
 	void setActiveProfile(int num);
 
@@ -86,7 +89,7 @@ private:
 
 public:
 	ZModem();
-	virtual ~ZModem();
+	~ZModem();
 
 	void factoryReset();
 	void disconnect();
