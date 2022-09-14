@@ -1,18 +1,18 @@
-#include "ZShell.h"
-#include "ZDebug.h"
-#include "ZSerial.h"
+#include "Shell.h"
+#include "DebugPort.h"
+#include "SerialPort.h"
 #include <SD.h>
 
-ZShell::ZShell()
+Shell::Shell()
 {
 	path = "/";
 }
 
-ZShell::~ZShell()
+Shell::~Shell()
 {
 }
 
-void ZShell::begin(ZProfile &profile)
+void Shell::begin(Profile &profile)
 {
 	if (!SD.begin())
 	{
@@ -38,15 +38,15 @@ void ZShell::begin(ZProfile &profile)
 		EOLN[1] = '\0';
 	}
 	
-	state = ZSHELL_SHOW_PROMPT;
+	state = SHELL_SHOW_PROMPT;
 }
 
-void ZShell::end()
+void Shell::end()
 {
 	SD.end();
 }
 
-void ZShell::exec(String line)
+void Shell::exec(String line)
 {
 	for (int i = 0; i < line.length(); i++)
 	{
@@ -71,11 +71,11 @@ void ZShell::exec(String line)
 
 	if (cmd.length())
 	{
-		state |= ZSHELL_SHOW_PROMPT;
+		state |= SHELL_SHOW_PROMPT;
 
 		if (cmd.equalsIgnoreCase("exit") || cmd.equalsIgnoreCase("quit") || cmd.equalsIgnoreCase("x") || cmd.equalsIgnoreCase("endshell"))
 		{
-			state = ZSHELL_DONE;
+			state = SHELL_DONE;
 		}
 		else if (cmd.equalsIgnoreCase("ls") || cmd.equalsIgnoreCase("dir") || cmd.equalsIgnoreCase("$") || cmd.equalsIgnoreCase("list"))
 		{
@@ -332,22 +332,22 @@ void ZShell::exec(String line)
 	}
 }
 
-bool ZShell::done()
+bool Shell::done()
 {
-	if (state & ZSHELL_SHOW_PROMPT)
+	if (state & SHELL_SHOW_PROMPT)
 	{
-		state &= ~ZSHELL_SHOW_PROMPT;
+		state &= ~SHELL_SHOW_PROMPT;
 		Serial2.printf("%s%s> ", EOLN, path.c_str());
 	}
-	return (state & ZSHELL_DONE) == ZSHELL_DONE;
+	return (state & SHELL_DONE) == SHELL_DONE;
 }
 
-bool ZShell::isMask(String mask)
+bool Shell::isMask(String mask)
 {
 	return (mask.indexOf("*") >= 0) || (mask.indexOf("?") >= 0);
 }
 
-bool ZShell::matches(String fname, String mask)
+bool Shell::matches(String fname, String mask)
 {
 	if ((mask.length() == 0) || (mask.equals("*")))
 		return true;
@@ -373,7 +373,7 @@ bool ZShell::matches(String fname, String mask)
 	return true;
 }
 
-String ZShell::stripArgs(String line, String &argLetters)
+String Shell::stripArgs(String line, String &argLetters)
 {
 	while (line.startsWith("-"))
 	{
@@ -390,7 +390,7 @@ String ZShell::stripArgs(String line, String &argLetters)
 	return line;
 }
 
-String ZShell::makePath(String addendum)
+String Shell::makePath(String addendum)
 {
 	if (addendum.length() > 0)
 	{
@@ -399,7 +399,7 @@ String ZShell::makePath(String addendum)
 	return fixPathNoSlash(path);
 }
 
-String ZShell::cleanOneArg(String line)
+String Shell::cleanOneArg(String line)
 {
 	int state = 0;
 	String arg = "";
@@ -425,7 +425,7 @@ String ZShell::cleanOneArg(String line)
 	return arg;
 }
 
-String ZShell::fixPathNoSlash(String p)
+String Shell::fixPathNoSlash(String p)
 {
 	String finalPath = "";
 	int lastX = 0;
@@ -486,7 +486,7 @@ String ZShell::fixPathNoSlash(String p)
 	return finalPath;
 }
 
-String ZShell::stripFilename(String p)
+String Shell::stripFilename(String p)
 {
 	int x = p.lastIndexOf("/");
 	if ((x < 0) || (x == p.length() - 1))
@@ -494,7 +494,7 @@ String ZShell::stripFilename(String p)
 	return p.substring(x + 1);
 }
 
-String ZShell::stripDir(String p)
+String Shell::stripDir(String p)
 {
 	int x = p.lastIndexOf("/");
 	if (x <= 0)
@@ -502,7 +502,7 @@ String ZShell::stripDir(String p)
 	return p.substring(0, x);
 }
 
-String ZShell::cleanFirstArg(String line)
+String Shell::cleanFirstArg(String line)
 {
 	int state = 0;
 	String arg = "";
@@ -536,7 +536,7 @@ String ZShell::cleanFirstArg(String line)
 	return arg;
 }
 
-String ZShell::cleanRemainArg(String line)
+String Shell::cleanRemainArg(String line)
 {
 	int state = 0;
 	int ct = 0;
@@ -576,7 +576,7 @@ String ZShell::cleanRemainArg(String line)
 	return "";
 }
 
-void ZShell::showDirectory(String p, String mask, String prefix, bool recurse)
+void Shell::showDirectory(String p, String mask, String prefix, bool recurse)
 {
 	int maskFilterLen = p.length();
 	if (!p.endsWith("/"))
@@ -614,7 +614,7 @@ void ZShell::showDirectory(String p, String mask, String prefix, bool recurse)
 		Serial2.printf("  %s %d%s", root.name(), root.size(), EOLN);
 }
 
-void ZShell::deleteFile(String p, String mask, bool recurse)
+void Shell::deleteFile(String p, String mask, bool recurse)
 {
 	int maskFilterLen = p.length();
 	if (!p.endsWith("/"))
@@ -659,7 +659,7 @@ void ZShell::deleteFile(String p, String mask, bool recurse)
 	}
 }
 
-void ZShell::copyFiles(String source, String mask, String target, bool recurse, bool overwrite)
+void Shell::copyFiles(String source, String mask, String target, bool recurse, bool overwrite)
 {
 	int maskFilterLen = source.length();
 	if (!source.endsWith("/"))

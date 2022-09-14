@@ -1,16 +1,16 @@
-#ifndef ZUPDATER_H
-#define ZUPDATER_H
+#ifndef UPDATER_H
+#define UPDATER_H
 
 #include <SPIFFS.h>
 #include <StreamString.h>
 #include <Update.h>
 #include <WebServer.h>
 
-class ZUpdater
+class Updater
 {
 public:
-	ZUpdater();
-	virtual ~ZUpdater();
+	Updater();
+	virtual ~Updater();
 
 	void setup(WebServer *server);
 	void setup(WebServer *server, const String &path);

@@ -1,20 +1,20 @@
-#include "ZProfile.h"
-#include "ZDebug.h"
-#include "z/options.h"
-#include "z/version.h"
+#include "Profile.h"
+#include "DebugPort.h"
+#include "options.h"
+#include "version.h"
 #include <SPIFFS.h>
 #include <ArduinoJson.h>
 
-ZProfile::ZProfile()
+Profile::Profile()
 {
 }
 
-ZProfile::~ZProfile()
+Profile::~Profile()
 {
 }
 
 
-void ZProfile::loadProfile(int num)
+void Profile::loadProfile(int num)
 {
 	memset(regs, 0, sizeof(regs));
 	memset(hostname, 0, sizeof(hostname));
@@ -63,7 +63,7 @@ void ZProfile::loadProfile(int num)
 	}	
 }
 
-void ZProfile::saveProfile(int num)
+void Profile::saveProfile(int num)
 {
 	char name[32];
 	snprintf(name, sizeof(name), "/profile/%d", num);

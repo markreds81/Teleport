@@ -1,6 +1,6 @@
-#include "ZModem.h"
-#include "ZPhonebook.h"
-#include "z/version.h"
+#include "Modem.h"
+#include "Phonebook.h"
+#include "version.h"
 #include <SPIFFS.h>
 #include <WiFi.h>
 
@@ -33,10 +33,10 @@
 #define TELNET_NOP 241
 #define TELNET_IAC 255
 
-const char *const ZModem::RESULT_CODES_V0[] = {
+const char *const Modem::RESULT_CODES_V0[] = {
 	"0", "1", "2", "3", "4", "6", "7", "8"};
 
-const char *const ZModem::RESULT_CODES_V1[] = {
+const char *const Modem::RESULT_CODES_V1[] = {
 	"OK",
 	"CONNECT",
 	"RING",
@@ -46,7 +46,7 @@ const char *const ZModem::RESULT_CODES_V1[] = {
 	"BUSY",
 	"NO ANSWER"};
 
-const unsigned char ZModem::PET2ASC_TABLE[256] PROGMEM = {
+const unsigned char Modem::PET2ASC_TABLE[256] PROGMEM = {
 	0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x14, 0x09, 0x0d, 0x11, 0x93, 0x0a, 0x0e, 0x0f,
 	0x10, 0x0b, 0x12, 0x13, 0x08, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f,
 	0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28, 0x29, 0x2a, 0x2b, 0x2c, 0x2d, 0x2e, 0x2f,
@@ -64,7 +64,7 @@ const unsigned char ZModem::PET2ASC_TABLE[256] PROGMEM = {
 	0xa0, 0xa1, 0xa2, 0xa3, 0xa4, 0xa5, 0xa6, 0xa7, 0xa8, 0xa9, 0xaa, 0xab, 0xac, 0xad, 0xae, 0xaf,
 	0xb0, 0xb1, 0xb2, 0xb3, 0xb4, 0xb5, 0xb6, 0xb7, 0xb8, 0xb9, 0xba, 0xbb, 0xbc, 0xbd, 0xbe, 0xbf};
 
-const unsigned char ZModem::ASC2PET_TABLE[256] PROGMEM = {
+const unsigned char Modem::ASC2PET_TABLE[256] PROGMEM = {
 	0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x14, 0x20, 0x0a, 0x11, 0x93, 0x0d, 0x0e, 0x0f,
 	0x10, 0x0b, 0x12, 0x13, 0x08, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f,
 	0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28, 0x29, 0x2a, 0x2b, 0x2c, 0x2d, 0x2e, 0x2f,
@@ -82,7 +82,7 @@ const unsigned char ZModem::ASC2PET_TABLE[256] PROGMEM = {
 	0xe0, 0xe1, 0xe2, 0xe3, 0xe4, 0xe5, 0xe6, 0xe7, 0xe8, 0xe9, 0xea, 0xeb, 0xec, 0xed, 0xee, 0xef,
 	0xf0, 0xf1, 0xf2, 0xf3, 0xf4, 0xf5, 0xf6, 0xf7, 0xf8, 0xf9, 0xfa, 0xfb, 0xfc, 0xfd, 0xfe, 0xff};
 
-ZModem::ZModem()
+Modem::Modem()
 {
 	mode = ZCOMMAND_MODE;
 	buffer[0] = '\0';
@@ -92,11 +92,11 @@ ZModem::ZModem()
 	memset(&esc, 0, sizeof(esc));
 }
 
-ZModem::~ZModem()
+Modem::~Modem()
 {
 }
 
-char ZModem::lc(char c)
+char Modem::lc(char c)
 {
 	if ((c >= 65) && (c <= 90))
 	{
@@ -109,12 +109,12 @@ char ZModem::lc(char c)
 	return c;
 }
 
-bool ZModem::asc2pet(char *c)
+bool Modem::asc2pet(char *c)
 {
 	return true;
 }
 
-bool ZModem::processIAC(char *c)
+bool Modem::processIAC(char *c)
 {
 	if (*c == 0xFF)
 	{
@@ -183,7 +183,7 @@ bool ZModem::processIAC(char *c)
 	return true;
 }
 
-int ZModem::modifierCompare(const char *m1, const char *m2)
+int Modem::modifierCompare(const char *m1, const char *m2)
 {
 	size_t l1 = strlen(m1);
 	size_t l2 = strlen(m2);
@@ -204,7 +204,7 @@ int ZModem::modifierCompare(const char *m1, const char *m2)
 	return 0;
 }
 
-void ZModem::setStaticIPs(IPAddress *ip, IPAddress *dns, IPAddress *gateway, IPAddress *subnet)
+void Modem::setStaticIPs(IPAddress *ip, IPAddress *dns, IPAddress *gateway, IPAddress *subnet)
 {
 	if (staticIP != nullptr)
 	{
@@ -228,7 +228,7 @@ void ZModem::setStaticIPs(IPAddress *ip, IPAddress *dns, IPAddress *gateway, IPA
 	staticSN = subnet;
 }
 
-bool ZModem::connectWiFi(const char *ssid, const char *pswd, IPAddress *ip, IPAddress *dns, IPAddress *gateway, IPAddress *subnet)
+bool Modem::connectWiFi(const char *ssid, const char *pswd, IPAddress *ip, IPAddress *dns, IPAddress *gateway, IPAddress *subnet)
 {
 	if (WiFi.status() == WL_CONNECTED)
 	{
@@ -285,7 +285,7 @@ bool ZModem::connectWiFi(const char *ssid, const char *pswd, IPAddress *ip, IPAd
 	return false;
 }
 
-bool ZModem::readSerialStream()
+bool Modem::readSerialStream()
 {
 	bool crReceived = false;
 	while (Serial2.available() > 0 && !crReceived)
@@ -323,7 +323,7 @@ bool ZModem::readSerialStream()
 	return crReceived && buflen > 0;
 }
 
-void ZModem::sendNewline()
+void Modem::sendNewline()
 {
 	Serial2.print(SREG.carriageReturn());
 	if (SREG.resultCodeVerbose())
@@ -332,7 +332,7 @@ void ZModem::sendNewline()
 	}
 }
 
-void ZModem::sendAnnouncement()
+void Modem::sendAnnouncement()
 {
 	sendNewline();
 	Serial2.printf("%s Firmware v%s (%s)", ZMODEM_APPNAME, ZMODEM_VERSION, ZMODEM_CODENAME);
@@ -363,9 +363,9 @@ void ZModem::sendAnnouncement()
 	Serial2.flush();
 }
 
-void ZModem::sendConfiguration()
+void Modem::sendConfiguration()
 {
-	ZProfile sp;
+	Profile sp;
 
 	sendNewline();
 	Serial2.printf("ACTIVE PROFILE: %d %s", SREG.baudRate, SREG.wifiSSID);
@@ -595,7 +595,7 @@ void ZModem::sendConfiguration()
 	}
 }
 
-void ZModem::sendResponse(ZResult rc)
+void Modem::sendResponse(ZResult rc)
 {
 	if (rc < ZIGNORE)
 	{
@@ -610,7 +610,7 @@ void ZModem::sendResponse(ZResult rc)
 	}
 }
 
-void ZModem::sendConnectionNotice(int id)
+void Modem::sendConnectionNotice(int id)
 {
 	sendNewline();
 	if (SREG.resultCodeNumeric())
@@ -668,7 +668,7 @@ void ZModem::sendConnectionNotice(int id)
 	sendNewline();
 }
 
-int ZModem::activeProfile()
+int Modem::activeProfile()
 {
 	int result = -1;
 
@@ -687,7 +687,7 @@ int ZModem::activeProfile()
 	return result;
 }
 
-void ZModem::setActiveProfile(int num)
+void Modem::setActiveProfile(int num)
 {
 	File file = SPIFFS.open("/profile/active", "w");
 	if (file)
@@ -698,7 +698,7 @@ void ZModem::setActiveProfile(int num)
 	}
 }
 
-size_t ZModem::socketWrite(uint8_t c)
+size_t Modem::socketWrite(uint8_t c)
 {
 	size_t totalBytesSent = 0;
 
@@ -711,7 +711,7 @@ size_t ZModem::socketWrite(uint8_t c)
 	return totalBytesSent;
 }
 
-size_t ZModem::socketWrite(const uint8_t *buf, size_t size)
+size_t Modem::socketWrite(const uint8_t *buf, size_t size)
 {
 	if (socket->telnetMode())
 	{
@@ -730,7 +730,7 @@ size_t ZModem::socketWrite(const uint8_t *buf, size_t size)
 	return socket->write(buf, size);
 }
 
-uint8_t ZModem::socketRead(unsigned long tmout)
+uint8_t Modem::socketRead(unsigned long tmout)
 {
 	if (!socket->available())
 	{
@@ -741,7 +741,7 @@ uint8_t ZModem::socketRead(unsigned long tmout)
 	return socket->read();
 }
 
-ZResult ZModem::execCommand()
+ZResult Modem::execCommand()
 {
 	String sbuf = (char *)buffer;
 	int len = buflen;
@@ -903,7 +903,7 @@ ZResult ZModem::execCommand()
 					DPRINTLN("Reset and Restore Profile");
 					for (int i = 0; i < clients.size(); i++)
 					{
-						ZClient *c = clients.get(i);
+						SocketClient *c = clients.get(i);
 						c->stop();
 						delay(50);
 						delete c;
@@ -1157,7 +1157,7 @@ ZResult ZModem::execCommand()
 	return ZERROR;
 }
 
-ZResult ZModem::execInfo(int vval, uint8_t *vbuf, int vlen, bool isNumber)
+ZResult Modem::execInfo(int vval, uint8_t *vbuf, int vlen, bool isNumber)
 {
 	switch (vval)
 	{
@@ -1233,7 +1233,7 @@ ZResult ZModem::execInfo(int vval, uint8_t *vbuf, int vlen, bool isNumber)
 	return ZOK;
 }
 
-ZResult ZModem::execTime(int vval, uint8_t *vbuf, int vlen, bool isNumber)
+ZResult Modem::execTime(int vval, uint8_t *vbuf, int vlen, bool isNumber)
 {
 	struct tm now;
 	if (getLocalTime(&now))
@@ -1245,7 +1245,7 @@ ZResult ZModem::execTime(int vval, uint8_t *vbuf, int vlen, bool isNumber)
 	return ZERROR;
 }
 
-ZResult ZModem::execWiFi(int vval, uint8_t *vbuf, int vlen, bool isNumber, const char *dmodifiers)
+ZResult Modem::execWiFi(int vval, uint8_t *vbuf, int vlen, bool isNumber, const char *dmodifiers)
 {
 	if (vlen == 0 || vval > 0)
 	{
@@ -1357,7 +1357,7 @@ ZResult ZModem::execWiFi(int vval, uint8_t *vbuf, int vlen, bool isNumber, const
 	return ZOK;
 }
 
-ZResult ZModem::execBaud(int vval, uint8_t *vbuf, int vlen)
+ZResult Modem::execBaud(int vval, uint8_t *vbuf, int vlen)
 {
 	DPRINTF("change baud rate to: %d\n", vval);
 	Serial2.flush();
@@ -1371,7 +1371,7 @@ ZResult ZModem::execBaud(int vval, uint8_t *vbuf, int vlen)
 	return ZOK;
 }
 
-ZResult ZModem::execDial(unsigned long vval, uint8_t *vbuf, int vlen, bool isNumber, const char *dmodifiers)
+ZResult Modem::execDial(unsigned long vval, uint8_t *vbuf, int vlen, bool isNumber, const char *dmodifiers)
 {
 	if (vlen == 0)
 	{
@@ -1393,7 +1393,7 @@ ZResult ZModem::execDial(unsigned long vval, uint8_t *vbuf, int vlen, bool isNum
 		}
 		for (i = 0; i < clients.size(); i++)
 		{
-			ZClient *c = clients.get(i);
+			SocketClient *c = clients.get(i);
 			if (c->id() == vval && c->connected())
 			{
 				socket = c;
@@ -1413,7 +1413,7 @@ ZResult ZModem::execDial(unsigned long vval, uint8_t *vbuf, int vlen, bool isNum
 			port = atoi((char *)(++colon));
 		}
 		DPRINTF("Connecting to %s:%d ", (char *)vbuf, port);
-		ZClient *client = new ZClient();
+		SocketClient *client = new SocketClient();
 		if (client->connect((char *)vbuf, port))
 		{
 			DPRINTLN("OK");
@@ -1434,7 +1434,7 @@ ZResult ZModem::execDial(unsigned long vval, uint8_t *vbuf, int vlen, bool isNum
 	return ZOK;
 }
 
-ZResult ZModem::execConnect(int vval, uint8_t *vbuf, int vlen, bool isNumber, const char *dmodifiers)
+ZResult Modem::execConnect(int vval, uint8_t *vbuf, int vlen, bool isNumber, const char *dmodifiers)
 {
 	if (vlen == 0)
 	{
@@ -1472,7 +1472,7 @@ ZResult ZModem::execConnect(int vval, uint8_t *vbuf, int vlen, bool isNumber, co
 		{
 			for (int i = 0; i < clients.size(); i++)
 			{
-				ZClient *c = clients.get(i);
+				SocketClient *c = clients.get(i);
 				if (c->connected())
 				{
 					sendNewline();
@@ -1492,7 +1492,7 @@ ZResult ZModem::execConnect(int vval, uint8_t *vbuf, int vlen, bool isNumber, co
 			// If no connection exists with the given id, ERROR is returned.
 			for (int i = 0; i < clients.size(); i++)
 			{
-				ZClient *c = clients.get(i);
+				SocketClient *c = clients.get(i);
 				if (c->id() == vval)
 				{
 					socket = c;
@@ -1514,7 +1514,7 @@ ZResult ZModem::execConnect(int vval, uint8_t *vbuf, int vlen, bool isNumber, co
 			port = atoi((char *)(++colon));
 		}
 		DPRINTF("Connecting to %s:%d ", (char *)vbuf, port);
-		ZClient *client = new ZClient();
+		SocketClient *client = new SocketClient();
 		if (client->connect((char *)vbuf, port))
 		{
 			DPRINTLN("OK");
@@ -1534,13 +1534,13 @@ ZResult ZModem::execConnect(int vval, uint8_t *vbuf, int vlen, bool isNumber, co
 	return ZOK;
 }
 
-ZResult ZModem::execHangup(int vval, uint8_t *vbuf, int vlen, bool isNumber)
+ZResult Modem::execHangup(int vval, uint8_t *vbuf, int vlen, bool isNumber)
 {
 	if (vlen == 0)
 	{
 		for (int i = 0; i < clients.size(); i++)
 		{
-			ZClient *c = clients.get(i);
+			SocketClient *c = clients.get(i);
 			c->stop();
 			delete c;
 		}
@@ -1570,7 +1570,7 @@ ZResult ZModem::execHangup(int vval, uint8_t *vbuf, int vlen, bool isNumber)
 		DPRINTF("Hangup: %d\n", vval);
 		for (int i = 0; i < clients.size(); i++)
 		{
-			ZClient *c = clients.get(i);
+			SocketClient *c = clients.get(i);
 			if (c->id() == vval)
 			{
 				clients.remove(i);
@@ -1587,7 +1587,7 @@ ZResult ZModem::execHangup(int vval, uint8_t *vbuf, int vlen, bool isNumber)
 	return ZERROR;
 }
 
-ZResult ZModem::execPhonebook(unsigned long vval, uint8_t *vbuf, int vlen, bool isNumber, const char *dmodifiers)
+ZResult Modem::execPhonebook(unsigned long vval, uint8_t *vbuf, int vlen, bool isNumber, const char *dmodifiers)
 {
 	if (vlen == 0 || isNumber || (vlen == 1 && *vbuf == '?'))
 	{
@@ -1652,7 +1652,7 @@ ZResult ZModem::execPhonebook(unsigned long vval, uint8_t *vbuf, int vlen, bool 
 	return ZOK;
 }
 
-ZResult ZModem::execSRegister(uint8_t *vbuf, int vlen)
+ZResult Modem::execSRegister(uint8_t *vbuf, int vlen)
 {
 	if (vlen >= 2)
 	{
@@ -1684,7 +1684,7 @@ ZResult ZModem::execSRegister(uint8_t *vbuf, int vlen)
 	return ZERROR;
 }
 
-void ZModem::switchTo(ZMode newMode, ZResult rc)
+void Modem::switchTo(ZMode newMode, ZResult rc)
 {
 	switch (mode)
 	{
@@ -1733,7 +1733,7 @@ void ZModem::switchTo(ZMode newMode, ZResult rc)
 	mode = newMode;
 }
 
-IPAddress *ZModem::parseIP(const char *str)
+IPAddress *Modem::parseIP(const char *str)
 {
     uint8_t dots[4];
     int dotDex = 0;
@@ -1776,12 +1776,12 @@ IPAddress *ZModem::parseIP(const char *str)
     return new IPAddress(dots[0], dots[1], dots[2], dots[3]);
 }
 
-void ZModem::factoryReset()
+void Modem::factoryReset()
 {
 	DPRINTLN("Factory Reset!");
 }
 
-void ZModem::disconnect()
+void Modem::disconnect()
 {
 	if (socket != nullptr)
 	{
@@ -1801,7 +1801,7 @@ void ZModem::disconnect()
 	}
 }
 
-void ZModem::begin()
+void Modem::begin()
 {
 	pinMode(PIN_CTS, INPUT);
 	pinMode(PIN_RTS, OUTPUT);

@@ -1,14 +1,14 @@
-#ifndef ZCONSOLE_H
-#define ZCONSOLE_H
+#ifndef CONSOLE_H
+#define CONSOLE_H
 
-#include "ZProfile.h"
+#include "Profile.h"
 #include <Arduino.h>
 
 #define ZCONSOLE_SHOW_MENU 0x01
 #define ZCONSOLE_DONE 0x02
 #define ZCONSOLE_CHANGED 0x04
 
-class ZConsole
+class Console
 {
 private:
 	enum MenuScreen
@@ -32,12 +32,12 @@ private:
 	char EOLN[3];
 
 public:
-	ZConsole();
-	virtual ~ZConsole();
+	Console();
+	virtual ~Console();
 
-	void begin(ZProfile &profile);
+	void begin(Profile &profile);
 	void exec(String cmd);
-	bool done(ZProfile &profile);
+	bool done(Profile &profile);
 	void end();
 };
 

@@ -1,19 +1,19 @@
-#ifndef ZSHELL_H
-#define ZSHELL_H
+#ifndef SHELL_H
+#define SHELL_H
 
-#include "ZProfile.h"
+#include "Profile.h"
 #include <Arduino.h>
 
-#define ZSHELL_SHOW_PROMPT  0x01
-#define ZSHELL_DONE         0x02
+#define SHELL_SHOW_PROMPT  0x01
+#define SHELL_DONE         0x02
 
-class ZShell
+class Shell
 {
 public:
-    ZShell();
-    virtual ~ZShell();
+    Shell();
+    virtual ~Shell();
 
-	void begin(ZProfile &profile);
+	void begin(Profile &profile);
     void end();
     void exec(String line);
     bool done();

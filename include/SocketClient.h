@@ -1,12 +1,12 @@
-#ifndef ZCLIENT_H
-#define ZCLIENT_H
+#ifndef SOCKET_CLIENT_H
+#define SOCKET_CLIENT_H
 
 #include <WiFiClient.h>
 
 #define ZCLIENT_FLAG_PETSCII    0x01
 #define ZCLIENT_FLAG_TELNET     0x02
 
-class ZClient : public WiFiClient
+class SocketClient : public WiFiClient
 {
 private:
     static int nextClientId;
@@ -18,7 +18,7 @@ private:
     uint8_t flags;
 
 public:
-    ZClient();
+    SocketClient();
 
     int connect(const char *host, uint16_t port);
     

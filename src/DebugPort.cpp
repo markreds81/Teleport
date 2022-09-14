@@ -1,12 +1,12 @@
-#include "ZDebug.h"
+#include "DebugPort.h"
 
-#if DEBUG
+#if DEBUG_ENABLED
 
 #include "driver/uart.h"
 
-ZDebug Serial(UART_NUM_0);        // global instance
+DebugPort Serial(UART_NUM_0);        // global instance
 
-void ZDebug::begin()
+void DebugPort::begin()
 {
     HardwareSerial::begin(115200);
     HardwareSerial::setDebugOutput(true);

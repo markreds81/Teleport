@@ -1,16 +1,16 @@
-#ifndef ZMODEM_H
-#define ZMODEM_H
+#ifndef MODEM_H
+#define MODEM_H
 
-#include "z/options.h"
-#include "z/types.h"
-#include "ZSerial.h"
-#include "ZClient.h"
-#include "ZBuzzer.h"
-#include "ZProfile.h"
-#include "ZShell.h"
-#include "ZConsole.h"
-#include "ZUpdater.h"
-#include "ZDebug.h"
+#include "options.h"
+#include "types.h"
+#include "SerialPort.h"
+#include "SocketClient.h"
+#include "Buzzer.h"
+#include "Profile.h"
+#include "Shell.h"
+#include "Console.h"
+#include "Updater.h"
+#include "DebugPort.h"
 #include <Arduino.h>
 #include <LinkedList.h>
 #include <WebServer.h>
@@ -20,7 +20,7 @@
 
 const char compile_date[] = __DATE__ " " __TIME__;
 
-class ZModem
+class Modem
 {
 private:
 	static const char *const RESULT_CODES_V0[];
@@ -34,14 +34,14 @@ private:
 
 	ZMode mode;
 	ZEscape esc;
-	ZProfile SREG;
-	ZBuzzer buzzer;
-	ZClient *socket;
-	ZShell shell;
-	ZConsole console;
-	LinkedList<ZClient *> clients;
+	Profile SREG;
+	Buzzer buzzer;
+	SocketClient *socket;
+	Shell shell;
+	Console console;
+	LinkedList<SocketClient *> clients;
 	WebServer httpServer;
-	ZUpdater httpUpdater;
+	Updater httpUpdater;
 	uint8_t buffer[MAX_COMMAND_SIZE];
 	size_t buflen;
 	String termType;
@@ -88,8 +88,8 @@ private:
 	static IPAddress *parseIP(const char *str);
 
 public:
-	ZModem();
-	~ZModem();
+	Modem();
+	~Modem();
 
 	void factoryReset();
 	void disconnect();

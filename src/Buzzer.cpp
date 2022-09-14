@@ -1,22 +1,22 @@
-#include "ZBuzzer.h"
-#include "ZDebug.h"
-#include "z/options.h"
+#include "Buzzer.h"
+#include "DebugPort.h"
+#include "options.h"
 
-const unsigned short ZBuzzer::melodyNotes[8] PROGMEM = {
+const unsigned short Buzzer::melodyNotes[8] PROGMEM = {
     NOTE_C4, NOTE_G3, NOTE_G3, NOTE_A3, NOTE_G3, 0, NOTE_B3, NOTE_C4};
 
-const unsigned char ZBuzzer::noteDurations[8] PROGMEM = {
+const unsigned char Buzzer::noteDurations[8] PROGMEM = {
     4, 8, 8, 4, 4, 4, 4, 4};
 
-ZBuzzer::ZBuzzer(/* args */)
+Buzzer::Buzzer(/* args */)
 {
 }
 
-ZBuzzer::~ZBuzzer()
+Buzzer::~Buzzer()
 {
 }
 
-void ZBuzzer::tone(uint8_t pin, unsigned int frequency, unsigned long duration, uint8_t channel)
+void Buzzer::tone(uint8_t pin, unsigned int frequency, unsigned long duration, uint8_t channel)
 {
     if (ledcRead(channel))
     {
@@ -32,13 +32,13 @@ void ZBuzzer::tone(uint8_t pin, unsigned int frequency, unsigned long duration, 
     }
 }
 
-void ZBuzzer::noTone(uint8_t pin, uint8_t channel)
+void Buzzer::noTone(uint8_t pin, uint8_t channel)
 {
     ledcDetachPin(pin);
     ledcWrite(channel, 0);
 }
 
-void ZBuzzer::playTune()
+void Buzzer::playTune()
 {
     for (int thisNote = 0; thisNote < 8; thisNote++)
     {

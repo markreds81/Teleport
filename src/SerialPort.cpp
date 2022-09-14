@@ -1,10 +1,10 @@
-#include "ZSerial.h"
-#include "z/options.h"
+#include "SerialPort.h"
+#include "options.h"
 #include "driver/uart.h"
 
-ZSerial Serial2(UART_NUM_2); // global instance
+SerialPort Serial2(UART_NUM_2); // global instance
 
-void ZSerial::begin(unsigned long baud, uint32_t config, int8_t rxPin, int8_t txPin, bool invert, unsigned long timeout_ms)
+void SerialPort::begin(unsigned long baud, uint32_t config, int8_t rxPin, int8_t txPin, bool invert, unsigned long timeout_ms)
 {
     uart_set_pin(UART_NUM_2, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE, PIN_RTS, PIN_CTS);
     HardwareSerial::begin(baud, config, rxPin, txPin, invert, timeout_ms);
@@ -13,7 +13,7 @@ void ZSerial::begin(unsigned long baud, uint32_t config, int8_t rxPin, int8_t tx
     lastActivity = 0;
 }
 
-int ZSerial::available()
+int SerialPort::available()
 {
     int avail = HardwareSerial::available();
     if (avail > 0)
@@ -28,21 +28,21 @@ int ZSerial::available()
     return avail;
 }
 
-size_t ZSerial::write(uint8_t c)
+size_t SerialPort::write(uint8_t c)
 {
     lastActivity = millis();
     digitalWrite(PIN_LED_DATA, HIGH);
     return HardwareSerial::write(c);
 }
 
-size_t ZSerial::write(const uint8_t *buffer, size_t size)
+size_t SerialPort::write(const uint8_t *buffer, size_t size)
 {
     lastActivity = millis();
     digitalWrite(PIN_LED_DATA, HIGH);
     return HardwareSerial::write(buffer, size);
 }
 
-void ZSerial::setFlowControl(FlowControlMode mode)
+void SerialPort::setFlowControl(FlowControlMode mode)
 {
     switch (mode)
     {

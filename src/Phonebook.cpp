@@ -1,11 +1,11 @@
-#include "ZPhonebook.h"
-#include "ZDebug.h"
+#include "Phonebook.h"
+#include "DebugPort.h"
 #include "string.h"
 #include <SPIFFS.h>
 
-ZPhonebook Phonebook;
+PhonebookClass Phonebook;
 
-bool ZPhonebook::checkEntry(char *cmd)
+bool PhonebookClass::checkEntry(char *cmd)
 {
     bool error = false;
     for (char *cptr = cmd; *cptr != 0; cptr++)
@@ -18,15 +18,15 @@ bool ZPhonebook::checkEntry(char *cmd)
     return (error || strlen(cmd) > 9) ? false : true;
 }
 
-ZPhonebook::ZPhonebook()
+PhonebookClass::PhonebookClass()
 {
 }
 
-ZPhonebook::~ZPhonebook()
+PhonebookClass::~PhonebookClass()
 {
 }
 
-int ZPhonebook::indexOf(unsigned long number)
+int PhonebookClass::indexOf(unsigned long number)
 {
     for (int i = 0; i < toc.size(); i++)
     {
@@ -38,7 +38,7 @@ int ZPhonebook::indexOf(unsigned long number)
     return -1;
 }
 
-void ZPhonebook::begin()
+void PhonebookClass::begin()
 {
     toc.clear();
     File root = SPIFFS.open(ZPHONEBOOK_PREFIX);
@@ -66,7 +66,7 @@ void ZPhonebook::begin()
     }
 }
 
-bool ZPhonebook::get(int index, PBEntry *pbe)
+bool PhonebookClass::get(int index, PBEntry *pbe)
 {
     char name[32];
     size_t bytesRead = 0;
@@ -85,7 +85,7 @@ bool ZPhonebook::get(int index, PBEntry *pbe)
     return bytesRead > 0;
 }
 
-bool ZPhonebook::put(PBEntry *pbe)
+bool PhonebookClass::put(PBEntry *pbe)
 {
     char name[32];
     size_t bytesWritten = 0;
@@ -109,7 +109,7 @@ bool ZPhonebook::put(PBEntry *pbe)
     return bytesWritten > 0;
 }
 
-bool ZPhonebook::put(unsigned long number, const char *address, const char *modifiers, const char *notes)
+bool PhonebookClass::put(unsigned long number, const char *address, const char *modifiers, const char *notes)
 {
     PBEntry pbe;
     memset(&pbe, 0, sizeof(pbe));
@@ -123,7 +123,7 @@ bool ZPhonebook::put(unsigned long number, const char *address, const char *modi
     return put(&pbe);
 }
 
-void ZPhonebook::remove(int index)
+void PhonebookClass::remove(int index)
 {
     char name[32];
 	unsigned long number = toc.get(index);

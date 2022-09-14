@@ -1,5 +1,5 @@
-#ifndef Z_BUZZER_H
-#define Z_BUZZER_H
+#ifndef BUZZER_H
+#define BUZZER_H
 
 #include <Arduino.h>
 
@@ -95,7 +95,7 @@
 #define NOTE_D8 4699
 #define NOTE_DS8 4978
 
-class ZBuzzer
+class Buzzer
 {
 private:
     static const unsigned short melodyNotes[];
@@ -103,7 +103,7 @@ private:
     
     static void callbackPlayTune(void *arg)
     {
-        reinterpret_cast<ZBuzzer *>(arg)->playTune();
+        reinterpret_cast<Buzzer *>(arg)->playTune();
     }
 
     void tone(uint8_t pin, unsigned int frequency, unsigned long duration = 0, uint8_t channel = TONE_CHANNEL);
@@ -112,12 +112,12 @@ private:
     void playTune();
 
 public:
-    ZBuzzer();
-    virtual ~ZBuzzer();
+    Buzzer();
+    virtual ~Buzzer();
 
     inline void playTuneAsync()
     {
-        xTaskCreate(&callbackPlayTune, "ZBUZZER", 1024, this, 5, NULL);
+        xTaskCreate(&callbackPlayTune, "TELEPORT_BUZZER", 1024, this, 5, NULL);
     }
 };
 

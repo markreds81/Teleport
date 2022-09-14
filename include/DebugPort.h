@@ -1,9 +1,9 @@
-#ifndef ZDEBUG_H
-#define ZDEBUG_H
+#ifndef DEBUG_PORT_H
+#define DEBUG_PORT_H
 
-#define DEBUG 1
+#define DEBUG_ENABLED 1
 
-#if DEBUG
+#if DEBUG_ENABLED
 
 #include <HardwareSerial.h>
 
@@ -11,7 +11,7 @@
 #define DPRINTF(...)            Serial.printf(__VA_ARGS__)
 #define DPRINTLN(...)           Serial.println(__VA_ARGS__)
 
-class ZDebug : public HardwareSerial
+class DebugPort : public HardwareSerial
 {
 public:
     using HardwareSerial::HardwareSerial;   // Inheriting constructors
@@ -19,7 +19,7 @@ public:
     void begin();
 };
 
-extern ZDebug Serial;
+extern DebugPort Serial;
 
 #else
 

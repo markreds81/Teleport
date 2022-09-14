@@ -1,18 +1,18 @@
-#include "ZConsole.h"
-#include "ZSerial.h"
-#include "ZDebug.h"
-#include "ZPhonebook.h"
+#include "Console.h"
+#include "SerialPort.h"
+#include "DebugPort.h"
+#include "Phonebook.h"
 #include <WiFi.h>
 
-ZConsole::ZConsole()
+Console::Console()
 {
 }
 
-ZConsole::~ZConsole()
+Console::~Console()
 {
 }
 
-void ZConsole::begin(ZProfile &profile)
+void Console::begin(Profile &profile)
 {
 	state = ZCONSOLE_SHOW_MENU;
 	menu = ZMENU_MAIN;
@@ -28,7 +28,7 @@ void ZConsole::begin(ZProfile &profile)
 	}
 }
 
-void ZConsole::exec(String cmd)
+void Console::exec(String cmd)
 {
 	char c = '?';
 	for (int i = 0; i < cmd.length(); i++)
@@ -88,7 +88,7 @@ void ZConsole::exec(String cmd)
 	}
 }
 
-bool ZConsole::done(ZProfile &profile)
+bool Console::done(Profile &profile)
 {
 	if (state & ZCONSOLE_SHOW_MENU)
 	{
@@ -127,6 +127,6 @@ bool ZConsole::done(ZProfile &profile)
 	return (state & ZCONSOLE_DONE) == ZCONSOLE_DONE;
 }
 
-void ZConsole::end()
+void Console::end()
 {
 }

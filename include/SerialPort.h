@@ -1,11 +1,11 @@
-#ifndef ZSERIAL_H
-#define ZSERIAL_H
+#ifndef SERIAL_PORT_H
+#define SERIAL_PORT_H
 
 #include <HardwareSerial.h>
 #include <Arduino.h>
-#include "z/types.h"
+#include "types.h"
 
-class ZSerial : public HardwareSerial
+class SerialPort : public HardwareSerial
 {
 private:
     unsigned long lastActivity;
@@ -21,6 +21,6 @@ public:
     void setFlowControl(FlowControlMode mode);
 };
 
-extern ZSerial Serial2;
+extern SerialPort Serial2;
 
 #endif

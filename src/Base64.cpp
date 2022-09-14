@@ -1,4 +1,4 @@
-#include "ZBase64.h"
+#include "Base64.h"
 
 namespace
 {
@@ -34,7 +34,7 @@ namespace
 	}
 }
 
-void ZBase64::encode(const uint8_t *input, size_t inputLength, char *output)
+void Base64::encode(const uint8_t *input, size_t inputLength, char *output)
 {
 	uint8_t i = 0;
 	uint8_t a3[3];
@@ -80,12 +80,12 @@ void ZBase64::encode(const uint8_t *input, size_t inputLength, char *output)
 	*output = '\0';
 }
 
-size_t ZBase64::encodeLength(size_t inputLength)
+size_t Base64::encodeLength(size_t inputLength)
 {
 	return (inputLength + 2 - ((inputLength + 2) % 3)) / 3 * 4 + 1;
 }
 
-void ZBase64::decode(const char *input, uint8_t *output)
+void Base64::decode(const char *input, uint8_t *output)
 {
 	size_t inputLength = strlen(input);
 	uint8_t i = 0;
@@ -140,7 +140,7 @@ void ZBase64::decode(const char *input, uint8_t *output)
 	}
 }
 
-size_t ZBase64::decodeLength(const char *input)
+size_t Base64::decodeLength(const char *input)
 {
 	size_t inputLength = strlen(input);
 	uint8_t eq = 0;

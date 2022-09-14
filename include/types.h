@@ -1,5 +1,5 @@
-#ifndef ZTYPES_H
-#define ZTYPES_H
+#ifndef TELEPORT_TYPES_H
+#define TELEPORT_TYPES_H
 
 #define ASCII_BS 8
 #define ASCII_XON 17
@@ -9,7 +9,7 @@
 
 #define ENC_TYPE_NONE WIFI_AUTH_OPEN
 
-#include "z/options.h"
+#include "options.h"
 #include <stdint.h>
 
 enum FlowControlMode

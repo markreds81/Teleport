@@ -1,5 +1,5 @@
-#ifndef ZPHONEBOOK_H
-#define ZPHONEBOOK_H
+#ifndef PHONEBOOK_H
+#define PHONEBOOK_H
 
 #include <LinkedList.h>
 #include <stdint.h>
@@ -14,7 +14,7 @@ struct PBEntry
     char notes[128];
 };
 
-class ZPhonebook
+class PhonebookClass
 {
 private:
     LinkedList<unsigned long> toc;
@@ -22,8 +22,8 @@ private:
 public:
     static bool checkEntry(char *cmd);
 
-    ZPhonebook();
-    virtual ~ZPhonebook();
+    PhonebookClass();
+    virtual ~PhonebookClass();
 
     inline int size() { return toc.size(); }
     inline bool empty() { return toc.size() == 0; }
@@ -37,6 +37,6 @@ public:
     void remove(int index);
 };
 
-extern ZPhonebook Phonebook;
+extern PhonebookClass Phonebook;
 
 #endif

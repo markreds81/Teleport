@@ -1,10 +1,10 @@
-#ifndef Z_PROFILE_H
-#define Z_PROFILE_H
+#ifndef PROFILE_H
+#define PROFILE_H
 
 #include <Arduino.h>
-#include "z/types.h"
+#include "types.h"
 
-class ZProfile
+class Profile
 {
 private:
     uint8_t regs[112];
@@ -15,8 +15,8 @@ public:
     char wifiPSWD[64];
     int baudRate;
 
-    ZProfile();
-    ~ZProfile();
+    Profile();
+    ~Profile();
 
     void loadProfile(int num);
     void saveProfile(int num);

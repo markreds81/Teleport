@@ -1,5 +1,5 @@
-#include "ZModem.h"
-#include "ZDebug.h"
+#include "Modem.h"
+#include "DebugPort.h"
 #include <Arduino.h>
 #include <Button.h>
 
@@ -8,7 +8,7 @@ const long GMT_OFFSET_SEC = 1 * 3600;	// GMT+1 Rome, Italy
 const int DST_OFFSET_SEC = 1 * 3600;	// DST off 60' Italy
 
 Button reset(PIN_FACTORY_RESET);
-ZModem modem;
+Modem modem;
 
 void setup()
 {

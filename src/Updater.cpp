@@ -1,7 +1,7 @@
-#include "ZUpdater.h"
-#include "ZDebug.h"
+#include "Updater.h"
+#include "DebugPort.h"
 
-const char ZUpdater::serverIndex[] PROGMEM =
+const char Updater::serverIndex[] PROGMEM =
 	R"(<!DOCTYPE html>
      <html lang='en'>
      <head>
@@ -22,10 +22,10 @@ const char ZUpdater::serverIndex[] PROGMEM =
      </body>
      </html>)";
 
-const char ZUpdater::successResponse[] PROGMEM =
+const char Updater::successResponse[] PROGMEM =
 	"<META http-equiv=\"refresh\" content=\"15;URL=/\">Update Success! Rebooting...";
 
-ZUpdater::ZUpdater()
+Updater::Updater()
 {
 	m_server = NULL;
 	m_username = emptyString;
@@ -33,26 +33,26 @@ ZUpdater::ZUpdater()
 	m_authenticated = false;
 }
 
-ZUpdater::~ZUpdater()
+Updater::~Updater()
 {
 }
 
-void ZUpdater::setup(WebServer *server)
+void Updater::setup(WebServer *server)
 {
 	setup(server, emptyString, emptyString);
 }
 
-void ZUpdater::setup(WebServer *server, const String &path)
+void Updater::setup(WebServer *server, const String &path)
 {
 	setup(server, path, emptyString, emptyString);
 }
 
-void ZUpdater::setup(WebServer *server, const String &username, const String &password)
+void Updater::setup(WebServer *server, const String &username, const String &password)
 {
 	setup(server, "/update", username, password);
 }
 
-void ZUpdater::setup(WebServer *server, const String &path, const String &username, const String &password)
+void Updater::setup(WebServer *server, const String &path, const String &username, const String &password)
 {
 
 	m_server = server;
@@ -144,13 +144,13 @@ void ZUpdater::setup(WebServer *server, const String &path, const String &userna
 		});
 }
 
-void ZUpdater::updateCredentials(const String &username, const String &password)
+void Updater::updateCredentials(const String &username, const String &password)
 {
 	m_username = username;
 	m_password = password;
 }
 
-void ZUpdater::setUpdaterError()
+void Updater::setUpdaterError()
 {
 	Update.printError(Serial);
 	StreamString str;

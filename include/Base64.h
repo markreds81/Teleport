@@ -1,10 +1,10 @@
-#ifndef ZBASE64_H
-#define ZBASE64_h
+#ifndef BASE64_H
+#define BASE64_H
 
 #include <inttypes.h>
 #include <string.h>
 
-namespace ZBase64
+namespace Base64
 {
 	void encode(const uint8_t *input, size_t inputLength, char *output);
 	size_t encodeLength(size_t inputLength);
